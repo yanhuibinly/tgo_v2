@@ -1,0 +1,20 @@
+{
+  "DbName":"tgo",
+  "Write":{
+    "Address":"172.172.177.20",
+    "Port":33069,
+    "User":"root",
+    "Password":"root@dev"
+  },
+  "Reads":[{
+    "Address":"172.172.177.20",
+    "Port":33069,
+    "User":"root",
+    "Password":"root@dev"
+  }],
+  "Pool":{
+    "Max":30,
+    "IdleMax":10,
+    "LifeTimeSeconds":0
+  }
+}

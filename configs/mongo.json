@@ -1,0 +1,7 @@
+{
+  "DbName":"component",
+  "Servers":"172.172.177.20:34009",
+  "Read_option":"PRIMARY",
+  "Timeout": 10000,
+  "pool_limit":30
+}

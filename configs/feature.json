@@ -1,0 +1,6 @@
+{
+  "Zipkin":true,
+  "Mongo":true,
+  "Mysql":true,
+  "Redis":true
+}

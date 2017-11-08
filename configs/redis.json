@@ -1,0 +1,26 @@
+{
+  "unpersist":{
+    "Address":["172.172.177.20:63797"],
+    "Prefix":"unpersist",
+    "Expire":604800,
+    "ConnectTimeout":1000,
+    "ReadTimeout":1000,
+    "WriteTimeout":1000,
+    "PoolMaxIdel":50,
+    "PoolMaxActive":10,
+    "PoolIdleTimeout":60000,
+    "PoolMinActive":10
+  },
+  "persist":{
+    "Address":["172.172.177.20:63797"],
+    "Prefix":"persist",
+    "Expire":604800,
+    "ConnectTimeout":1000,
+    "ReadTimeout":1000,
+    "WriteTimeout":1000,
+    "PoolMaxIdel":50,
+    "PoolMaxActive":10,
+    "PoolIdleTimeout":60000,
+    "PoolMinActive":10
+  }
+}
