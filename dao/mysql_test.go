@@ -18,7 +18,7 @@ type m1 struct{
 
 func testInit()*testModelMysql{
 
-	dao:= &testModelMysql{Mysql{TableName:"test"}}
+	dao:= &testModelMysql{Mysql{DbName:"tgo1",TableName:"test"}}
 	return dao
 }
 func TestMysql_GetWriteOrm(t *testing.T) {
@@ -183,7 +183,7 @@ func TestMysql_Update(t *testing.T) {
 		t.Error(err)
 	}
 }
-
+/*
 func TestMysql_Delete(t *testing.T) {
 	m:= testInit()
 
@@ -194,4 +194,4 @@ func TestMysql_Delete(t *testing.T) {
 	if err!=nil{
 		t.Error(err)
 	}
-}
+}*/

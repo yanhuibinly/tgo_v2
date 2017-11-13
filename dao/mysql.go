@@ -15,9 +15,8 @@ import (
 )
 
 var(
-	configMysql *config.Mysql
-	dbMysqlWrite *gorm.DB
-	dbMysqlReads []*gorm.DB
+	dbMysqlWrite map[string]*gorm.DB
+	dbMysqlReads map[string][]*gorm.DB
 )
 type IModelMysql interface {
 	GetCreatedTime() time.Time
@@ -50,27 +49,34 @@ func (m *ModelMysql) SetUpdatedTime(t time.Time) {
 func init(){
 	if config.FeatureMysql(){
 
-		configMysql = config.MysqlGet()
+		dbMysqlWrite = make(map[string]*gorm.DB)
+		dbMysqlReads = make(map[string][]*gorm.DB)
 
-		var err error
-		dbMysqlWrite,err = initDb(configMysql.DbName,configMysql.Write,configMysql.Pool)
+		for _,conf := range config.MysqlGetAll() {
 
-		if err!=nil{
-			panic("connect to mysql write server failed")
-		}
+			var err error
+			var dbWrite *gorm.DB
+			dbWrite, err = initDb(conf.Db, conf.Conn.Write, conf.Conn.Pool)
 
-		for _,c:= range configMysql.Reads{
-			d,err:= initDb(configMysql.DbName,c,configMysql.Pool)
-
-			if err==nil{
-				dbMysqlReads = append(dbMysqlReads,d)
-			}else{
-				log.Errorf("mysql read init failed:%+v",err)
+			if err != nil {
+				panic("connect to mysql write server failed")
 			}
-		}
 
-		if len(dbMysqlReads) ==0{
-			dbMysqlReads = append(dbMysqlReads,dbMysqlWrite)
+			dbMysqlWrite[conf.Db] = dbWrite
+
+			for _, c := range conf.Conn.Reads {
+				d, err := initDb(conf.Db, c, conf.Conn.Pool)
+
+				if err == nil {
+					dbMysqlReads[conf.Db] = append(dbMysqlReads[conf.Db], d)
+				} else {
+					log.Errorf("mysql read init failed:%+v", err)
+				}
+			}
+
+			if len(dbMysqlReads) == 0 {
+				dbMysqlReads[conf.Db] = append(dbMysqlReads[conf.Db], dbWrite)
+			}
 		}
 	}
 }
@@ -99,6 +105,7 @@ func initDb(dbName string,configMysql config.MysqlBase,configPool config.MysqlPo
 }
 
 type Mysql struct{
+	DbName string
 	TableName string
 }
 
@@ -107,10 +114,24 @@ func NewMysql(tableName string) *Mysql{
 	return &Mysql{TableName:tableName}
 }
 
-// GetWriteOrm
-func (p *Mysql) GetWriteOrm(ctx context.Context)(*gorm.DB,error){
+func (p *Mysql) getDbName()string{
+	if p.DbName != ""{
+		return p.DbName
+	}
+	for _,conf := range config.MysqlGetAll() {
+		if conf.Db !=""{
+			return conf.Db
+		}
+	}
 
-	span,ctx := p.ZipkinNewSpan(ctx,"getWriteOrm")
+	return ""
+}
+// GetWriteOrm
+func (p *Mysql) GetWriteOrm(ctx context.Context)( *gorm.DB, error){
+
+	dbName:=p.getDbName()
+
+	span,ctx := p.ZipkinNewSpan(ctx,dbName +":getWriteOrm")
 
 	if span !=nil{
 		defer span.Finish()
@@ -120,7 +141,7 @@ func (p *Mysql) GetWriteOrm(ctx context.Context)(*gorm.DB,error){
 		span.SetTag("err:getorm",err)
 		return nil,err
 	}
-	return dbMysqlWrite,nil
+	return dbMysqlWrite[dbName],nil
 }
 
 // GetReadOrm
@@ -131,23 +152,25 @@ func (p *Mysql) GetReadOrm(ctx context.Context)(*gorm.DB,error){
 	if span !=nil{
 		defer span.Finish()
 	}
-	if len(dbMysqlReads)== 0{
+	dbName := p.getDbName()
+	conf := dbMysqlReads[dbName]
+	if len(conf)== 0{
 		err := terror.New(pconst.ERROR_MYSQL_READ_EMPTY)
 		span.SetTag("err:getorm",err)
 		return nil,err
 	}
 
 	var index int
-	if len(dbMysqlReads) > 1 {
+	if len(conf) > 1 {
 		rand.Seed(time.Now().UnixNano())
 
-		index = rand.Intn(len(dbMysqlReads) -1 )
+		index = rand.Intn(len(conf) -1 )
 
 	}else{
 		index = 0
 	}
 
-	return dbMysqlReads[index],nil
+	return conf[index],nil
 }
 
 func (p *Mysql) ZipkinNewSpan(ctx context.Context,name string)(opentracing.Span,context.Context){

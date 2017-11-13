@@ -14,6 +14,7 @@ import (
 	"context"
 	"github.com/opentracing/opentracing-go"
 	"encoding/json"
+	"strconv"
 )
 
 
@@ -38,7 +39,6 @@ func init(){
 }
 
 func initRedisPool(conf config.RedisBase)*pools.ResourcePool{
-	fmt.Println(conf)
 	return pools.NewResourcePool(func() (pools.Resource, error) {
 		c, serverIndex, err := dial(0,conf)
 		return ResourceConn{Conn: c, serverIndex: serverIndex}, err
@@ -47,7 +47,6 @@ func initRedisPool(conf config.RedisBase)*pools.ResourcePool{
 }
 func dial(fromIndex int,config config.RedisBase) (conn redis.Conn, index int, err error) {
 
-	fmt.Println(config.Address)
 	if len(config.Address) > 0 {
 		if fromIndex+1 > len(config.Address) {
 			fromIndex = 0
@@ -194,10 +193,9 @@ func (p *Redis) getKey(key string) string {
 	}
 	return fmt.Sprintf("%s:%s:%s", prefixRedis, p.Key, key)
 }
-// doSet
-func (p *Redis) doSet(ctx context.Context,cmd string, key string, value interface{}, expire int, fields ...string) (reply interface{},err error) {
 
-	span, ctx := p.ZipkinNewSpan(ctx, "doset")
+func (p *Redis) Do(ctx context.Context,cmd string,args ...interface{})(reply interface{},err error){
+	span, ctx := p.ZipkinNewSpan(ctx, cmd)
 	if span != nil {
 		defer span.Finish()
 	}
@@ -208,11 +206,94 @@ func (p *Redis) doSet(ctx context.Context,cmd string, key string, value interfac
 		return
 	}
 
-	key = p.getKey(key)
+	defer p.PutConn(ctx,redisResource)
+
+	redisClient := redisResource.(ResourceConn)
+
+	var errDo error
+	reply, errDo = redisClient.Do(cmd, args...)
+
+	if errDo!=nil{
+		log.Errorf("run redis command %s failed:error:%s,args:%v", cmd, errDo.Error(), args)
+
+		err = terror.New(pconst.ERROR_REDIS_DO)
+		p.ZipkinTag(span,"do"+cmd,err)
+	}
+	return
+}
+
+// PipeDo
+func (p *Redis) PipeDo(ctx context.Context,cmd string,args [][]interface{}, value []interface{})(err error){
+	span, ctx := p.ZipkinNewSpan(ctx, cmd)
+	if span != nil {
+		defer span.Finish()
+	}
+
+	redisResource, err:= p.GetConn(ctx)
+
+	if err != nil {
+		return
+	}
 
 	defer p.PutConn(ctx,redisResource)
 
 	redisClient := redisResource.(ResourceConn)
+
+	for _, v := range args {
+		if err = redisClient.Send(cmd, v...); err != nil {
+			log.Errorf("Send(%v) returned error %v", v, err)
+			err = terror.New(pconst.ERROR_REDIS_PIPE_SEND)
+			p.ZipkinTag(span,"send",err)
+			return
+		}
+	}
+	if err = redisClient.Flush(); err != nil {
+		log.Errorf("Flush() returned error %v", err)
+		err = terror.New(pconst.ERROR_REDIS_PIPE_FLUSH)
+		p.ZipkinTag(span,"flush",err)
+		return
+	}
+	for k, v := range args {
+		var result interface{}
+		result, err = redisClient.Receive()
+		if err != nil {
+			log.Errorf("Receive(%v) returned error %v", v, err)
+			err = terror.New(pconst.ERROR_REDIS_PIPE_RECEIVE)
+			p.ZipkinTag(span,"receive",err)
+			return
+		}
+		if result == nil {
+			value[k] = nil
+			continue
+		}
+		if reflect.TypeOf(result).Kind() == reflect.Slice {
+
+			byteResult := (result.([]byte))
+			strResult := string(byteResult)
+
+			if strResult == "[]" {
+				value[k] = nil
+				continue
+			}
+		}
+
+		errorJson := json.Unmarshal(result.([]byte), value[k])
+
+		if errorJson != nil {
+			log.Errorf("get %s command result failed:%s", cmd, errorJson.Error())
+			err = terror.New(pconst.ERROR_REDIS_PIPE_UNMARSHAL)
+			p.ZipkinTag(span,"unmarshal",err)
+			return
+		}
+	}
+
+
+	return
+}
+// doSet
+func (p *Redis) doSet(ctx context.Context,cmd string, key string, value interface{}, expire int, fields ...string) (reply interface{},err error) {
+
+	key = p.getKey(key)
 
 	data, errJson := json.Marshal(value)
 
@@ -221,7 +302,6 @@ func (p *Redis) doSet(ctx context.Context,cmd string, key string, value interfac
 		log.Errorf("redis %s marshal data to json:%s", cmd, errJson.Error())
 
 		err = terror.New(pconst.ERROR_REDIS_SET_MARSHAL)
-		p.ZipkinTag(span,"marshal",err)
 
 		return
 	}
@@ -232,43 +312,35 @@ func (p *Redis) doSet(ctx context.Context,cmd string, key string, value interfac
 		expire = cacheConfig.Expire
 	}
 
-	var errDo error
 
 	if len(fields) == 0 {
 		if expire > 0 && strings.ToUpper(cmd) == "SET" {
-			reply, errDo = redisClient.Do(cmd, key, data, "ex", expire)
+			reply, err = p.Do(ctx,cmd,key,data,"ex",expire)
 		} else {
-			reply, errDo = redisClient.Do(cmd, key, data)
+			reply, err = p.Do(ctx,cmd,key, data)
 		}
 
 	} else {
 		field := fields[0]
 
-		reply, errDo = redisClient.Do(cmd, key, field, data)
+		reply, err = p.Do(ctx,cmd,key, field, data)
 
 	}
 
-	if errDo != nil {
-		log.Errorf("run redis command %s failed:error:%s,key:%s,fields:%v,data:%v", cmd, errDo.Error(), key, fields, value)
-
-		err = terror.New(pconst.ERROR_REDIS_SET_DO)
-		p.ZipkinTag(span,"do",err)
+	if err != nil {
 		return
 	}
 	//set expire
 	if expire > 0 && strings.ToUpper(cmd) != "SET" {
-		_, errExpire := redisClient.Do("EXPIRE", key, expire)
-		if errExpire != nil {
-			log.Errorf("run redis EXPIRE command failed: error:%s,key:%s,time:%d", errExpire.Error(), key, expire)
-			p.ZipkinTag(span,"expire",terror.NewFromError(errExpire))
-		}
+		p.Do(ctx,"EXPIRE", key, expire)
 	}
 
 	return
 }
 
 // doSetNX
-func (p *Redis) doSetNX(ctx context.Context,cmd string, key string, value interface{}, expire int, field ...string) (row int64, err error) {
+func (p *Redis) doSetNX(ctx context.Context,cmd string, key string, value interface{}, expire int, field ...string) (exists bool, err error) {
+
 
 	reply, err := p.doSet(ctx,cmd, key, value, expire, field...)
 
@@ -281,27 +353,21 @@ func (p *Redis) doSetNX(ctx context.Context,cmd string, key string, value interf
 	if !ok {
 		log.Errorf("HSetNX reply to int failed,key:%s,field:%s", key, field)
 		err = terror.New(pconst.ERROR_REDIS_SETNX_REPLY)
+
 		return
+	}
+
+	if row ==0{
+		exists = true
+	}else{
+		exists = false
 	}
 
 	return
 }
 
 // doMSet
-func (p *Redis) doMSet(ctx context.Context,cmd string, key string, value map[string]interface{}) (reply interface{}, err error) {
-
-	span, ctx := p.ZipkinNewSpan(ctx, "domset")
-	if span != nil {
-		defer span.Finish()
-	}
-
-	redisResource, err:= p.GetConn(ctx)
-
-	if err != nil {
-		return
-	}
-
-	defer p.PutConn(ctx,redisResource)
+func (p *Redis) doMSet(ctx context.Context,cmd string, key string, value map[string]interface{}) (reply interface{},err error) {
 
 
 	var args []interface{}
@@ -317,7 +383,6 @@ func (p *Redis) doMSet(ctx context.Context,cmd string, key string, value map[str
 		if errJson != nil {
 			log.Errorf("redis %s marshal data: %v to json:%s", cmd, v, errJson.Error())
 			err = terror.New(pconst.ERROR_REDIS_MSET_MARSHAL)
-			p.ZipkinTag(span,"marshal",err)
 			return
 		}
 		if key == "" {
@@ -338,18 +403,10 @@ func (p *Redis) doMSet(ctx context.Context,cmd string, key string, value map[str
 			args = append(args, "ex", expire)
 		}*/
 
-	redisClient := redisResource.(ResourceConn)
 
-	var errDo error
-	reply, errDo = redisClient.Do(cmd, args...)
 
-	if errDo != nil {
-		log.Errorf("run redis command %s failed:error:%s,key:%s,value:%v", cmd, errDo.Error(), key, value)
+	reply, err = p.Do(ctx,cmd, args...)
 
-		err = terror.New(pconst.ERROR_REDIS_MSET_DO)
-		p.ZipkinTag(span,"do",err)
-		return
-	}
 	return
 }
 
@@ -357,30 +414,11 @@ func (p *Redis) doMSet(ctx context.Context,cmd string, key string, value map[str
 func (p *Redis) doGet(ctx context.Context,cmd string, key string, value interface{}, fields ...string) (exists bool,err error) {
 
 
-	span, ctx := p.ZipkinNewSpan(ctx, "doget")
-	if span != nil {
-		defer span.Finish()
-	}
-
-	redisResource, err:= p.GetConn(ctx)
-
-	if err != nil {
-		return
-	}
-
-	defer p.PutConn(ctx,redisResource)
-
-
-	redisClient := redisResource.(ResourceConn)
-
 	key = p.getKey(key)
 
-	var result interface{}
-	var errDo error
+	var reply interface{}
 
-	//if len(fields) == 0 {
-	//	result, errDo = redisClient.Do(cmd, key)
-	//} else {
+
 	var args []interface{}
 
 	args = append(args, key)
@@ -389,25 +427,20 @@ func (p *Redis) doGet(ctx context.Context,cmd string, key string, value interfac
 		args = append(args, f)
 	}
 
-	result, errDo = redisClient.Do(cmd, args...)
+	reply, err = p.Do(ctx,cmd,args...)
 
-	if errDo != nil {
+	if err != nil {
 
-		log.Errorf("run redis %s command failed: error:%s,key:%s,fields:%v", cmd, errDo.Error(), key, fields)
-		err = terror.New(pconst.ERROR_REDIS_GET_DO)
-		p.ZipkinTag(span,"do",err)
 		return
 	}
 
-	if result == nil {
-		value = nil
-		exists = false
+	if reply == nil {
 		return
 	}
 
-	if reflect.TypeOf(result).Kind() == reflect.Slice {
+	if reflect.TypeOf(reply).Kind() == reflect.Slice {
 
-		byteResult := (result.([]byte))
+		byteResult := (reply.([]byte))
 		strResult := string(byteResult)
 
 		if strResult == "[]" {
@@ -416,13 +449,13 @@ func (p *Redis) doGet(ctx context.Context,cmd string, key string, value interfac
 		}
 	}
 
-	errorJson := json.Unmarshal(result.([]byte), value)
+	errorJson := json.Unmarshal(reply.([]byte), value)
 
 	if errorJson != nil {
 
 		if reflect.TypeOf(value).Kind() == reflect.Ptr && reflect.TypeOf(value).Elem().Kind() == reflect.String {
 			var strValue string
-			strValue = string(result.([]byte))
+			strValue = string(reply.([]byte))
 
 			v := value.(*string)
 
@@ -436,7 +469,6 @@ func (p *Redis) doGet(ctx context.Context,cmd string, key string, value interfac
 		log.Errorf("get %s command result failed:%s", cmd, errorJson.Error())
 
 		err = terror.New(pconst.ERROR_REDIS_GET_UNMARSHAL)
-		p.ZipkinTag(span,"unmarshal",err)
 
 		return
 	}
@@ -449,17 +481,10 @@ func (p *Redis) doGet(ctx context.Context,cmd string, key string, value interfac
 // doMGet
 func (p *Redis) doMGet(ctx context.Context,cmd string, args []interface{}, value interface{}) (err error) {
 
-	span, ctx := p.ZipkinNewSpan(ctx, "doMGet")
-	if span != nil {
-		defer span.Finish()
-	}
-
-
 	refValue := reflect.ValueOf(value)
 	if refValue.Kind() != reflect.Ptr || refValue.Elem().Kind() != reflect.Slice || refValue.Elem().Type().Elem().Kind() != reflect.Ptr {
 		log.Errorf("value is not *[]*object:  %v", refValue.Elem().Type().Elem().Kind())
 		err = terror.New(pconst.ERROR_REDIS_MGET_TYPE)
-		p.ZipkinTag(span,"replay",err)
 		return
 	}
 	//return errors.New(fmt.Sprintf("s:  %v", refValue.Elem().Type().Elem().Elem()))
@@ -468,24 +493,12 @@ func (p *Redis) doMGet(ctx context.Context,cmd string, args []interface{}, value
 	refItem := refSlice.Type().Elem()
 
 
-	redisResource, err:= p.GetConn(ctx)
-
-	if err != nil {
-		return
-	}
-
-	defer p.PutConn(ctx,redisResource)
-
-	redisClient := redisResource.(ResourceConn)
-
-	result, errDo := redis.ByteSlices(redisClient.Do(cmd, args...))
+	result, errDo := redis.ByteSlices(p.Do(ctx,cmd, args...))
 
 	if errDo != nil {
 		log.Errorf("run redis %s command failed: error:%s,args:%v", cmd, errDo.Error(), args)
 
 		err = terror.New(pconst.ERROR_REDIS_MGET_DO)
-
-		p.ZipkinTag(span,"do",err)
 
 		return
 	}
@@ -508,8 +521,6 @@ func (p *Redis) doMGet(ctx context.Context,cmd string, args []interface{}, value
 					log.Errorf("%s command result failed:%s", cmd, errorJson.Error())
 					err = terror.New(pconst.ERROR_REDIS_MGET_DO)
 
-					p.ZipkinTag(span,"do",err)
-
 					return
 				}
 				refSlice.Set(reflect.Append(refSlice, item.Elem()))
@@ -524,40 +535,20 @@ func (p *Redis) doMGet(ctx context.Context,cmd string, args []interface{}, value
 // doIncr
 func (p *Redis) doIncr(ctx context.Context,cmd string, key string, value int, expire int, fields ...string) (count int64,err error) {
 
-	span, ctx := p.ZipkinNewSpan(ctx, "doincr")
-	if span != nil {
-		defer span.Finish()
-	}
-
-	redisResource, err:= p.GetConn(ctx)
-
-	if err != nil {
-		return
-	}
-
-	defer p.PutConn(ctx,redisResource)
-
-
-	redisClient := redisResource.(ResourceConn)
 
 	key = p.getKey(key)
 
 	var data interface{}
-	var errDo error
 
 	if len(fields) == 0 {
-		data, errDo = redisClient.Do(cmd, key, value)
+		data, err = p.Do(ctx,cmd, key, value)
 	} else {
 		field := fields[0]
-		data, errDo = redisClient.Do(cmd, key, field, value)
+		data, err = p.Do(ctx,cmd, key, field, value)
 	}
 
-	if errDo != nil {
-		log.Errorf("run redis %s command failed: error:%s,key:%s,fields:%v,value:%d", cmd, errDo.Error(), key, fields, value)
+	if err != nil {
 
-		err = terror.New(pconst.ERROR_REDIS_SET_MARSHAL)
-
-		p.ZipkinTag(span,"do",err)
 		return
 	}
 
@@ -569,7 +560,6 @@ func (p *Redis) doIncr(ctx context.Context,cmd string, key string, value int, ex
 
 		err = terror.New(pconst.ERROR_REDIS_INCR_CONVERT)
 
-		p.ZipkinTag(span,"do",err)
 		return
 	}
 
@@ -580,11 +570,7 @@ func (p *Redis) doIncr(ctx context.Context,cmd string, key string, value int, ex
 	}
 	//set expire
 	if expire > 0 {
-		_, errExpire := redisClient.Do("EXPIRE", key, expire)
-		if errExpire != nil {
-			log.Errorf("run redis EXPIRE command failed: error:%s,key:%s,time:%d", errExpire.Error(), key, expire)
-			p.ZipkinTag(span,"expire",terror.NewFromError(errExpire))
-		}
+		p.Do(ctx,"EXPIRE", key, expire)
 	}
 
 	return
@@ -592,30 +578,7 @@ func (p *Redis) doIncr(ctx context.Context,cmd string, key string, value int, ex
 // doDel
 func (p *Redis) doDel(ctx context.Context,cmd string, data ...interface{}) (err error) {
 
-	span, ctx := p.ZipkinNewSpan(ctx, "dodel")
-	if span != nil {
-		defer span.Finish()
-	}
-
-	redisResource, err:= p.GetConn(ctx)
-
-	if err != nil {
-		return
-	}
-
-	defer p.PutConn(ctx,redisResource)
-
-	redisClient := redisResource.(ResourceConn)
-
-	_, errDo := redisClient.Do(cmd, data...)
-
-	if errDo != nil {
-		log.Errorf("run redis %s command failed: error:%s,data:%v", cmd, errDo.Error(), data)
-
-		err = terror.New(pconst.ERROR_REDIS_DEL_DO)
-
-		p.ZipkinTag(span, "do", err)
-	}
+	_,err= p.Do(ctx,cmd, data...)
 
 	return
 }
@@ -636,7 +599,7 @@ func (p *Redis) Set(ctx context.Context,key string, value interface{}) (err erro
 	return
 }
 // SetNX
-func (p *Redis) SetNX(ctx context.Context,key string, value interface{}) (int64, error) {
+func (p *Redis) SetNX(ctx context.Context,key string, value interface{}) (exists bool,err error) {
 
 	return p.doSetNX(ctx,"SETNX", key, value, 0)
 }
@@ -651,7 +614,21 @@ func (p *Redis) SetEx(ctx context.Context,key string, value interface{}, expire 
 
 // MSet
 func (p *Redis) MSet(ctx context.Context,datas map[string]interface{}) (err error) {
-	_, err = p.doMSet(ctx,"MSET", "", datas)
+	var reply interface{}
+	reply,err = p.doMSet(ctx,"MSET", "", datas)
+
+	if err != nil {
+
+		return
+	}
+
+	row, ok := reply.(string)
+
+	if !ok  || row !="OK"{
+		fmt.Println(reply)
+		log.Error("MSet reply is not ok,key")
+		err = terror.New(pconst.ERROR_REDIS_MSET_REPLY)
+	}
 
 	return
 }
@@ -779,56 +756,57 @@ func (p *Redis) HSet(ctx context.Context,key string, field string, value interfa
 	return
 
 }
-/*
-// HSetNX
-func (p *Redis) HSetNX(ctx context.Context,key string, field string, value interface{}) (int64, err error) {
+
+// HSetNX exists是否存在
+func (p *Redis) HSetNX(ctx context.Context,key string, field string, value interface{}) (exists bool, err error) {
 
 	return p.doSetNX(ctx,"HSETNX", key, value, 0, field)
 }
 
-//HMSet value是filed:data
-func (p *Redis) HMSet(key string, value map[string]interface{}) bool {
-	_, err := p.doMSet("HMSet", key, value)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-//HMSetE value是filed:data
-func (p *Redis) HMSetE(key string, value map[string]interface{}) error {
-	_, err := p.doMSet("HMSet", key, value)
-	return err
-}
-
-func (p *Redis) HLen(key string, data *int) bool {
-	redisResource, err := p.InitRedisPool()
+// HMSet value是filed:data
+func (p *Redis) HMSet(ctx context.Context,key string, value map[string]interface{}) (err error) {
+	var reply interface{}
+	reply,err = p.doMSet(ctx,"HMSet", key, value)
 
 	if err != nil {
-		return false
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
 
-	redisClient := redisResource.(ResourceConn)
+		return
+	}
+
+	row, ok := reply.(string)
+
+	if !ok  || row !="OK"{
+		fmt.Println(reply)
+		log.Errorf("doMSet reply is not ok,key:%s", key)
+		err = terror.New(pconst.ERROR_REDIS_MSET_REPLY)
+	}
+	return
+}
+
+// HLen
+func (p *Redis) HLen(ctx context.Context,key string, data *int) (err error) {
+
 	key = p.getKey(key)
-	resultData, errDo := redisClient.Do("HLEN", key)
+	reply, err := p.Do(ctx,"HLEN", key)
 
-	if errDo != nil {
-		log.Errorf("run redis HLEN command failed: error:%s,key:%s", errDo.Error(), key)
-		return false
+	if err != nil {
+		return
 	}
 
-	length, b := resultData.(int64)
+	length, b := reply.(int64)
 
 	if !b {
-		log.Errorf("redis data convert to int64 failed:%v", resultData)
+		log.Errorf("redis data convert to int64 failed:%v", reply)
+		err = terror.New(pconst.ERROR_REDIS_CONVERT)
+		return
 	}
 	*data = int(length)
 
-	return b
+	return
 }
 
-func (p *Redis) HDel(key string, data ...interface{}) bool {
+// HDel
+func (p *Redis) HDel(ctx context.Context,key string, data ...interface{}) (err error) {
 	var args []interface{}
 
 	key = p.getKey(key)
@@ -838,48 +816,31 @@ func (p *Redis) HDel(key string, data ...interface{}) bool {
 		args = append(args, item)
 	}
 
-	err := p.doDel("HDEL", args...)
+	err = p.doDel(ctx,"HDEL", args...)
 
-	if err != nil {
-		log.Errorf("run redis HDEL command failed: error:%s,key:%s,data:%v", err.Error(), key, data)
-		return false
-	}
-
-	return true
+	return
 }
 
 // hash end
 
-// sorted set start
-func (p *Redis) ZAdd(key string, score int, data interface{}) bool {
-	redisResource, err := p.InitRedisPool()
+// ZAdd sorted set
+func (p *Redis) ZAdd(ctx context.Context,key string, score int, data interface{}) (err error) {
 
-	if err != nil {
-		return false
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
-
-	redisClient := redisResource.(ResourceConn)
 	key = p.getKey(key)
-	_, errDo := redisClient.Do("ZADD", key, score, data)
+	_, err = p.Do(ctx,"ZADD", key, score, data)
 
-	if errDo != nil {
-		log.Errorf("run redis ZADD command failed: error:%s,key:%s,score:%d,data:%v", errDo.Error(), key, score, data)
-		return false
-	}
-	return true
+	return
 }
 
-// sorted set start
-func (p *Redis) ZAddM(key string, value map[string]interface{}) bool {
-	_, err := p.doMSet("ZADD", key, value)
-	if err != nil {
-		return false
-	}
-	return true
+// ZAddM sorted set
+func (p *Redis) ZAddM(ctx context.Context,key string, value map[string]interface{}) (err error) {
+	 _,err = p.doMSet(ctx,"ZADD", key, value)
+
+	return
 }
 
-func (p *Redis) ZGet(key string, sort bool, start int, end int, value interface{}) error {
+// ZGet
+func (p *Redis) ZGet(ctx context.Context,key string, sort bool, start int, end int, value interface{}) (err error) {
 
 	var cmd string
 	if sort {
@@ -893,16 +854,18 @@ func (p *Redis) ZGet(key string, sort bool, start int, end int, value interface{
 	args = append(args, start)
 	args = append(args, end)
 
-	err := p.doMGet(cmd, args, value)
+	err = p.doMGet(ctx,cmd, args, value)
 
-	return err
+	return
 }
 
-func (p *Redis) ZRevRange(key string, start int, end int, value interface{}) error {
-	return p.ZGet(key, false, start, end, value)
+// ZRevRange
+func (p *Redis) ZRevRange(ctx context.Context,key string, start int, end int, value interface{}) (err error) {
+	return p.ZGet(ctx,key, false, start, end, value)
 }
 
-func (p *Redis) ZRem(key string, data ...interface{}) bool {
+// ZRem
+func (p *Redis) ZRem(ctx context.Context,key string, data ...interface{}) (err error) {
 
 	var args []interface{}
 
@@ -913,154 +876,117 @@ func (p *Redis) ZRem(key string, data ...interface{}) bool {
 		args = append(args, item)
 	}
 
-	err := p.doDel("ZREM", args...)
+	err = p.doDel(ctx,"ZREM", args...)
 
-	if err != nil {
-		return false
-	}
-	return true
+	return
 }
 
-//list start
-
-func (p *Redis) LRange(key string, start int, end int, value interface{}) bool {
+// LRange
+func (p *Redis) LRange(ctx context.Context,key string, start int, end int, value interface{}) (err error) {
 
 	cmd := "LRANGE"
 
 	strStart := strconv.Itoa(start)
 	strEnd := strconv.Itoa(end)
-	_, err := p.doGet(cmd, key, value, strStart, strEnd)
-	if err == nil {
-		return true
-	} else {
-		return false
-	}
+
+	_, err = p.doGet(ctx,cmd, key, value, strStart, strEnd)
+
+	return
 }
 
-func (p *Redis) LLen(key string) (int64, error) {
+// LLen
+func (p *Redis) LLen(ctx context.Context,key string) (len int64, err error) {
 	cmd := "LLEN"
 
-	redisResource, err := p.InitRedisPool()
-
-	if err != nil {
-		return 0, err
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
-
-	redisClient := redisResource.(ResourceConn)
 	key = p.getKey(key)
 
-	var result interface{}
-	var errDo error
 
 	var args []interface{}
 	args = append(args, key)
-	result, errDo = redisClient.Do(cmd, key)
+	reply, err := p.Do(ctx,cmd, key)
 
-	if errDo != nil {
-
-		log.Errorf("run redis %s command failed: error:%s,key:%s", cmd, errDo.Error(), key)
-
-		return 0, errDo
+	if err != nil || reply ==nil{
+		return
 	}
 
-	if result == nil {
-		return 0, nil
-	}
 
-	num, ok := result.(int64)
+	len, ok := reply.(int64)
 	if !ok {
-		return 0, errors.New("result to int64 failed")
+		log.Errorf("LLen reply to int failed,key:%s", key)
+		err = terror.New(pconst.ERROR_REDIS_CONVERT)
 	}
 
-	return num, nil
+	return
 }
 
-func (p *Redis) LREM(key string, count int, data interface{}) int {
-	redisResource, err := p.InitRedisPool()
+// LRem
+func (p *Redis) LRem(ctx context.Context,key string, count int, data interface{}) (r int64,err error) {
+
+	result, err := p.Do(ctx,"LREM", key, count, data)
 
 	if err != nil {
-		return 0
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
-
-	redisClient := redisResource.(ResourceConn)
-
-	result, errDo := redisClient.Do("LREM", key, count, data)
-
-	if errDo != nil {
-		log.Errorf("run redis command LREM failed: error:%s,key:%s,count:%d,data:%v", errDo.Error(), key, count, data)
-		return 0
+		return
 	}
 
-	countRem, ok := result.(int)
+	r, ok := result.(int64)
 
 	if !ok {
 		log.Errorf("redis data convert to int failed:%v", result)
-		return 0
+		err = terror.New(pconst.ERROR_REDIS_CONVERT)
+		return
 	}
 
-	return countRem
+	return
 }
 
-func (p *Redis) RPush(value interface{}) bool {
-	return p.Push(value, false)
+// RPush
+func (p *Redis) RPush(ctx context.Context,value interface{}) (err error) {
+	cmd:= "RPUSH"
+	key := ""
+
+	_, err = p.doSet(ctx,cmd, key, value, -1)
+
+	return
 }
-func (p *Redis) LPush(value interface{}) bool {
-	return p.Push(value, true)
+// LPush
+func (p *Redis) LPush(ctx context.Context,value interface{}) (err error) {
+
+	cmd:= "LPUSH"
+	key := ""
+
+	_, err = p.doSet(ctx,cmd, key, value, -1)
+
+	return
 }
 
-func (p *Redis) Push(value interface{}, isLeft bool) bool {
-
-	var cmd string
-	if isLeft {
-		cmd = "LPUSH"
-	} else {
-		cmd = "RPUSH"
-	}
+// RPop
+func (p *Redis) RPop(ctx context.Context,value interface{}) (err error) {
+	cmd := "RPOP"
 
 	key := ""
 
-	_, err := p.doSet(cmd, key, value, -1)
+	_, err = p.doGet(ctx,cmd, key, value)
 
-	if err != nil {
-		return false
-	}
-	return true
+	return
 }
 
-func (p *Redis) RPop(value interface{}) bool {
-	return p.Pop(value, false)
-}
+// LPop
+func (p *Redis) LPop(ctx context.Context,value interface{}) (err error) {
 
-func (p *Redis) LPop(value interface{}) bool {
-	return p.Pop(value, true)
-}
+	cmd := "LPOP"
 
-func (p *Redis) Pop(value interface{}, isLeft bool) bool {
-
-	var cmd string
-	if isLeft {
-		cmd = "LPOP"
-	} else {
-		cmd = "RPOP"
-	}
 	key := ""
 
-	_, err := p.doGet(cmd, key, value)
+	_, err = p.doGet(ctx,cmd, key, value)
 
-	if err == nil {
-		return true
-	} else {
-		return false
-	}
+	return
 }
 
 //list end
 
 //pipeline start
 
-func (p *Redis) PipelineHGet(key []string, fields []interface{}, data []interface{}) error {
+func (p *Redis) PipelineHGet(ctx context.Context,key []string, fields []interface{}, data []interface{}) (err error) {
 	var args [][]interface{}
 
 	for k, v := range key {
@@ -1070,143 +996,65 @@ func (p *Redis) PipelineHGet(key []string, fields []interface{}, data []interfac
 		args = append(args, arg)
 	}
 
-	err := p.pipeDoGet("HGET", args, data)
+	err = p.PipeDo(ctx,"HGET", args, data)
 
-	return err
-}
-
-func (p *Redis) pipeDoGet(cmd string, args [][]interface{}, value []interface{}) error {
-
-	redisResource, err := p.InitRedisPool()
-
-	if err != nil {
-		return err
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
-
-	redisClient := redisResource.(ResourceConn)
-
-	for _, v := range args {
-		if err := redisClient.Send(cmd, v...); err != nil {
-			log.Errorf("Send(%v) returned error %v", v, err)
-			return err
-		}
-	}
-	if err := redisClient.Flush(); err != nil {
-		log.Errorf("Flush() returned error %v", err)
-		return err
-	}
-	for k, v := range args {
-		result, err := redisClient.Receive()
-		if err != nil {
-			log.Errorf("Receive(%v) returned error %v", v, err)
-			return err
-		}
-		if result == nil {
-			value[k] = nil
-			continue
-		}
-		if reflect.TypeOf(result).Kind() == reflect.Slice {
-
-			byteResult := (result.([]byte))
-			strResult := string(byteResult)
-
-			if strResult == "[]" {
-				value[k] = nil
-				continue
-			}
-		}
-
-		errorJson := json.Unmarshal(result.([]byte), value[k])
-
-		if errorJson != nil {
-			log.Errorf("get %s command result failed:%s", cmd, errorJson.Error())
-			return errorJson
-		}
-	}
-
-	return nil
+	return
 }
 
 //pipeline end
 
-// Set集合Start
-func (p *Redis) SAdd(key string, argPs []interface{}) bool {
-	redisResource, err := p.InitRedisPool()
-
-	if err != nil {
-		return false
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
+// SAdd Set集合Start
+func (p *Redis) SAdd(ctx context.Context,key string, argPs []interface{}) (err error) {
 
 	args := make([]interface{}, len(argPs)+1)
 	args[0] = p.getKey(key)
 	copy(args[1:], argPs)
 
-	redisClient := redisResource.(ResourceConn)
 
-	_, errDo := redisClient.Do("SADD", args...)
+	_,err = p.Do(ctx,"SADD", args...)
 
-	if errDo != nil {
-		log.Errorf("run redis SADD command failed: error:%s,key:%s,args:%v", errDo.Error(), key, args)
-		return false
-	}
-	return true
+	return
 }
 
-func (p *Redis) SIsMember(key string, arg interface{}) bool {
-	redisResource, err := p.InitRedisPool()
-
-	if err != nil {
-		return false
-	}
-	defer daoPool.Put(redisResource, p.Persistent)
+// SIsMember
+func (p *Redis) SIsMember(ctx context.Context,key string, arg interface{}) (err error) {
 
 	key = p.getKey(key)
 
-	redisClient := redisResource.(ResourceConn)
-	reply, errDo := redisClient.Do("SISMEMBER", key, arg)
-
-	if errDo != nil {
-		log.Errorf("run redis SISMEMBER command failed: error:%s,key:%s,member:%s", errDo.Error(), key, arg)
-		return false
-	}
-	if code, ok := reply.(int64); ok && code == int64(1) {
-		return true
-	}
-	return false
-}
-
-func (p *Redis) SRem(key string, argPs []interface{}) bool {
-	redisResource, err := p.InitRedisPool()
+	reply, err := p.Do(ctx,"SISMEMBER", key, arg)
 
 	if err != nil {
-		return false
+
+		return
 	}
-	defer daoPool.Put(redisResource, p.Persistent)
+	if code, ok := reply.(int64); !ok || code != int64(1) {
+		err = terror.New(pconst.ERROR_REDIS_CONVERT)
+	}
+	return
+}
+
+// SRem
+func (p *Redis) SRem(ctx context.Context,key string, argPs []interface{}) (err error) {
 
 	args := make([]interface{}, len(argPs)+1)
 	args[0] = p.getKey(key)
 	copy(args[1:], argPs)
 
-	redisClient := redisResource.(ResourceConn)
 
-	_, errDo := redisClient.Do("SREM", args...)
+	_, err = p.Do(ctx,"SREM", args...)
 
-	if errDo != nil {
-		log.Errorf("run redis SREM command failed: error:%s,key:%s,member:%s", errDo.Error(), key, args)
-		return false
+	if err != nil {
+		return
 	}
-	return true
+	return
 }
-
-func (p *Redis) HGetAll(key string, data interface{}) error {
+// HGetAll 不建议使用
+func (p *Redis) HGetAll(ctx context.Context,key string, data interface{}) (err error) {
 	var args []interface{}
 
 	args = append(args, p.getKey(key))
 
-	err := p.doMGet("HGETALL", args, data)
+	err = p.doMGet(ctx,"HGETALL", args, data)
 
-	return err
+	return
 }
-*/

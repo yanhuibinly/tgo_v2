@@ -1,33 +1,56 @@
 package config
 
+
 type Mongo struct {
-	DbName      string
+	Mongo []MongoConf
+}
+type MongoConf struct {
+	Db      string
+	Conn MongoConn
+}
+
+type MongoConn struct {
 	Servers     string
 	ReadOption string `json:"read_option"`
 	Timeout     int
 	PoolLimit   int `json:"pool_limit"`
 }
 
+
 var (
-	mongoConfig *Mongo
+	mongoConfig map[string]MongoConf
 )
 func init(){
 	if FeatureMongo() {
-		mongoConfig = &Mongo{}
+		config:= &Mongo{}
 
 		defaultMongoConfig := configMongoGetDefault()
 
-		configGet("mongo", mongoConfig, defaultMongoConfig)
+		configGet("mongo", config, defaultMongoConfig)
+
+		if len(config.Mongo) ==0{
+			panic("mongo config is empty")
+		}
+
+		mongoConfig = make(map[string]MongoConf)
+
+		for _,c:= range config.Mongo{
+			mongoConfig[c.Db] = c
+		}
 	}
 }
 
 
 
 func configMongoGetDefault() *Mongo {
-	return &Mongo{DbName: "dbname", Servers: "servers", ReadOption: "PRIMARY", Timeout: 1000, PoolLimit: 30}
+	return &Mongo{Mongo:[]MongoConf{MongoConf{Db:"tgo",Conn:MongoConn{
+		Servers: "servers", ReadOption: "PRIMARY", Timeout: 1000, PoolLimit: 30}}}}
 }
 
-func MongoGet() *Mongo {
+func MongoGet(dbName string)MongoConf{
+	return mongoConfig[dbName]
+}
+func MongoGetAll() map[string]MongoConf {
 
 	return mongoConfig
 }

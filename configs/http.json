@@ -1,0 +1,16 @@
+{
+  "Http":[
+    {
+      "Service":"tgo",
+      "Conn":{
+        "Url":"test"
+      }
+    },
+    {
+      "Service":"tgo2",
+      "Conn":{
+        "Url":"test"
+      }
+    }
+  ]
+}

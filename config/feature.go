@@ -5,6 +5,8 @@ type Feature struct {
 	Mongo bool
 	Mysql bool
 	Redis bool
+	Grpc bool
+	Http bool
 }
 
 var (
@@ -21,7 +23,7 @@ func init(){
 
 
 func configFeatureGetDefault() *Feature {
-	return &Feature{Zipkin:true,Mongo:true,Mysql:true,Redis:true}
+	return &Feature{Zipkin:true,Mongo:true,Mysql:true,Redis:true,Grpc:true,Http:true}
 }
 
 func FeatureGet() *Feature {
@@ -45,3 +47,10 @@ func FeatureRedis() bool{
 	return featureConfig.Redis
 }
 
+func FeatureGrpc() bool{
+	return featureConfig.Grpc
+}
+
+func FeatureHttp() bool{
+	return featureConfig.Http
+}

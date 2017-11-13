@@ -53,6 +53,7 @@ func (m *ModelMongo) GetId() string {
 
 // Mongo mongo
 type Mongo struct {
+	DbName string
 	CollectionName string
 
 	AutoIncrementId bool
@@ -82,24 +83,27 @@ var (
 
 func init(){
 	if config.FeatureMongo() {
-		configMongo = config.MongoGet()
 
-		if strings.Trim(configMongo.ReadOption, " ") == "" {
-			configMongo.ReadOption = "nearest"
+		for _,c:= range config.MongoGetAll(){
+			configMongo := c.Conn
+			if strings.Trim(configMongo.ReadOption, " ") == "" {
+				configMongo.ReadOption = "nearest"
+			}
+
+			connectionString := fmt.Sprintf("mongodb://%s", configMongo.Servers)
+
+			var err error
+			sessionMongo, err = mgo.Dial(connectionString)
+
+			if err != nil {
+
+				log.Logf(log.LevelFatal, "connect to mongo server error:%s,%s", err.Error(), connectionString)
+				panic("connect to mongo server")
+
+			}
+			sessionMongo.SetPoolLimit(configMongo.PoolLimit)
 		}
 
-		connectionString := fmt.Sprintf("mongodb://%s", configMongo.Servers)
-
-		var err error
-		sessionMongo, err = mgo.Dial(connectionString)
-
-		if err != nil {
-
-			log.Logf(log.LevelFatal, "connect to mongo server error:%s,%s", err.Error(), connectionString)
-			panic("connect to mongo server")
-
-		}
-		sessionMongo.SetPoolLimit(configMongo.PoolLimit)
 	}
 }
 
@@ -137,12 +141,30 @@ func (p * Mongo) SetMode(session *mgo.Session, dft string) {
 func (p * Mongo) GetId(ctx context.Context) (string, error) {
 	return p.GetNextSequence(ctx)
 }
+
+func (p *Mongo) getDbName()string{
+	if p.DbName != ""{
+		return p.DbName
+	}
+	for _,conf := range config.MongoGetAll() {
+		if conf.Db !=""{
+			return conf.Db
+		}
+	}
+
+	return ""
+}
 // GetSession 获取session
 func (p * Mongo) GetSession(span opentracing.Span)(*mgo.Session, string, error) {
+
+	dbName := p.getDbName()
+
+	configMongo := config.MongoGet(dbName).Conn
+
 	if sessionMongo !=nil{
 		clone := sessionMongo.Clone()
 		p.SetMode(clone, configMongo.ReadOption)
-		return clone, configMongo.DbName, nil
+		return clone, dbName, nil
 	}
 	msg := "session mongo is nul"
 
@@ -151,7 +173,7 @@ func (p * Mongo) GetSession(span opentracing.Span)(*mgo.Session, string, error) 
 	if span!=nil{
 		span.SetTag("session_err",err)
 	}
-	return nil, configMongo.DbName, err
+	return nil, dbName, err
 }
 func (p * Mongo) GetNextSequence(ctx context.Context) (string, error) {
 
