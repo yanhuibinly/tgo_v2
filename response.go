@@ -36,10 +36,10 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 	}
 
 	//添加结果
-	if te.Code  == 1001 {
-		c.Set("result", true)
-	} else {
+	if te.Code>=10000 && te.Code<100000{
 		c.Set("result", false)
+	}else{
+		c.Set("result", true)
 	}
 
 	if strings.Trim(te.Msg, " ") == ""{

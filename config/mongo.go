@@ -34,8 +34,8 @@ func init(){
 
 		mongoConfig = make(map[string]MongoConf)
 
-		for _,c:= range config.Mongo{
-			mongoConfig[c.Db] = c
+		for i,c:= range config.Mongo{
+			mongoConfig[c.Db] = config.Mongo[i]
 		}
 	}
 }

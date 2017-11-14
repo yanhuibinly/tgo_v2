@@ -7,6 +7,7 @@ type Grpc struct{
 
 type GrpcConf struct {
 	Service      string
+	Insecure bool
 	Conn []string
 }
 
@@ -29,8 +30,8 @@ func init() {
 
 		grpcConfig = make(map[string]*GrpcConf)
 
-		for _, c := range config.Grpc {
-			grpcConfig[c.Service] = &c
+		for i, c := range config.Grpc {
+			grpcConfig[c.Service] = &config.Grpc[i]
 		}
 	}
 }

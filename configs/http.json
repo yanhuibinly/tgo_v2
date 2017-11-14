@@ -4,13 +4,25 @@
       "Service":"tgo",
       "Conn":{
         "Url":"test"
-      }
+      },
+      "Paths":[
+        {
+          "Key":"test1",
+          "Path":"sdfsdfsdfsdf"
+        }
+      ]
     },
     {
       "Service":"tgo2",
       "Conn":{
         "Url":"test"
-      }
+      },
+      "Paths":[
+        {
+          "Key":"test1",
+          "Path":"sdfsdfsdfsdf"
+        }
+      ]
     }
   ]
 }

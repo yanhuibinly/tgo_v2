@@ -20,7 +20,7 @@ func NewFromError(err error) *TError{
 	if err==nil{
 		return nil
 	}
-	return &TError{Code:pconst.ERROR_UNKOWN, Msg:err.Error()}
+	return &TError{Code:pconst.ERROR_SYSTEM, Msg:err.Error()}
 }
 
 func (p *TError) GetMsg()string{

@@ -3,12 +3,13 @@ package zipkin
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go/ext"
-
 	"github.com/opentracing/opentracing-go"
 )
 
 func MiddlewardHttp() gin.HandlerFunc{
+
 	return func(c *gin.Context) {
+
 		tracer := opentracing.GlobalTracer()
 
 		wireContext, err := tracer.Extract(
@@ -30,6 +31,7 @@ func MiddlewardHttp() gin.HandlerFunc{
 		ctx := opentracing.ContextWithSpan(c.Request.Context(), span)
 
 		c.Request = c.Request.WithContext(ctx)
+
 		c.Next()
 	}
 }

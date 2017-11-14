@@ -44,8 +44,8 @@ func init(){
 
 		mysqlConfig = make(map[string]MysqlConf)
 
-		for _,c:= range config.Mysql{
-			mysqlConfig[c.Db] = c
+		for i,c:= range config.Mysql{
+			mysqlConfig[c.Db] = config.Mysql[i]
 		}
 	}
 }

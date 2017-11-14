@@ -15,6 +15,7 @@ import (
 
 type Grpc struct{
 	Service string
+	Insecure bool
 	DialOptions []grpc.DialOption
 }
 
@@ -25,7 +26,7 @@ var (
 
 func (p *Grpc) ZipkinNewSpan(ctx context.Context,name string)(opentracing.Span,context.Context){
 	if config.FeatureZipkin(){
-		return opentracing.StartSpanFromContext(ctx,fmt.Sprintf("grpc:%s",name))
+		return opentracing.StartSpanFromContext(ctx,fmt.Sprintf("grpc:%s:%s",p.Service,name))
 	}else{
 		return nil,ctx
 	}
@@ -55,15 +56,19 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn,err error) {
 	conn, ok := grpcConnMap[p.Service]
 
 	if !ok || conn == nil {
-		config := config.GrpcGet(p.Service)
-		if config == nil {
+		conf := config.GrpcGet(p.Service)
+		if conf == nil {
 			err = terror.New(pconst.ERROR_GRPC_CONFIG)
 			return
 		}
 		balancer := gogrpc.NewBalancerIp()
-		balancer.SetAddr(config.Conn...)
+
+		balancer.SetAddr(conf.Conn...)
 
 		dialOptions := append(p.DialOptions, grpc.WithBalancer(balancer))
+		if conf.Insecure{
+			dialOptions = append(dialOptions,grpc.WithInsecure())
+		}
 		conn, err = grpc.Dial(p.Service, dialOptions...)
 
 		if err != nil {
@@ -95,10 +100,10 @@ func (p *Grpc) CloseConn(ctx context.Context,conn *grpc.ClientConn) error {
 	return nil //grpcPool.ReturnObject(conn)
 }
 
-func (p *Grpc) Invoke(ctx context.Context,conn *grpc.ClientConn,
-	funcInvoke func(context.Context,interface{}, ...grpc.CallOption)(interface{},error),in interface{},opts ...grpc.CallOption,
-	)(reply interface{},err error){
-	span,ctx:= p.ZipkinNewSpan(ctx,"invoke")
+func (p *Grpc) Invoke(ctx context.Context,conn *grpc.ClientConn,funcName string,
+	funcInvoke func(context.Context)(error))(err error){
+
+	span,ctx:= p.ZipkinNewSpan(ctx,fmt.Sprintf("invoke:%s",funcName))
 
 	if span !=nil{
 		defer span.Finish()
@@ -108,7 +113,13 @@ func (p *Grpc) Invoke(ctx context.Context,conn *grpc.ClientConn,
 		defer p.CloseConn(ctx,conn)
 	}
 
-	reply,err = funcInvoke(ctx,in,opts...)
+
+	err = funcInvoke(ctx)
+
+	if err!=nil{
+		log.Errorf("grpc error :%s",err.Error())
+		err = terror.New(pconst.ERROR_GRPC_INVOKE)
+	}
 
 	return
 

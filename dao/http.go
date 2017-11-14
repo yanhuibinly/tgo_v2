@@ -4,47 +4,18 @@ import (
 	"net/url"
 	"context"
 	"net/http"
-	"time"
 	"fmt"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/terror"
 	"github.com/tonyjt/tgo_v2/pconst"
 	"github.com/opentracing/opentracing-go"
-	"strings"
-	"gopkg.in/mgo.v2"
+	"io/ioutil"
+
 )
 
 type Http struct {
 	Service string
-	Url string
-	Timeout time.Duration
-}
-
-func init(){
-	if config.FeatureMongo() {
-
-		for _,c:= range config.MongoGetAll(){
-			configMongo := c.Conn
-			if strings.Trim(configMongo.ReadOption, " ") == "" {
-				configMongo.ReadOption = "nearest"
-			}
-
-			connectionString := fmt.Sprintf("mongodb://%s", configMongo.Servers)
-
-			var err error
-			sessionMongo, err = mgo.Dial(connectionString)
-
-			if err != nil {
-
-				log.Logf(log.LevelFatal, "connect to mongo server error:%s,%s", err.Error(), connectionString)
-				panic("connect to mongo server")
-
-			}
-			sessionMongo.SetPoolLimit(configMongo.PoolLimit)
-		}
-
-	}
 }
 
 func (p *Http) ZipkinNewSpan(ctx context.Context,name string)(opentracing.Span,context.Context){
@@ -62,18 +33,23 @@ func (p *Http) proccessError(span opentracing.Span,err error,msg string)(error){
 	return err
 }
 // PostForm
-func (p *Http) PostForm(ctx context.Context,path string,data url.Values)(response *http.Response,err error){
+func (p *Http) PostForm(ctx context.Context,pathKey string,data url.Values)(response *http.Response,err error){
 
-	span,ctx := p.ZipkinNewSpan(ctx,path)
+	span,ctx := p.ZipkinNewSpan(ctx,pathKey)
 
 	if span!=nil{
 		defer span.Finish()
 	}
 
-	u := p.Url + path
+	conf := config.HttpGet(p.Service)
 
+	u,err := p.url(ctx,span,conf,pathKey)
 
-	client := http.Client{Timeout:p.Timeout}
+	if err!=nil{
+		return
+	}
+
+	client := http.Client{Timeout:conf.Conn.Timeout}
 
 	response,err = client.PostForm(u,data)
 
@@ -90,21 +66,47 @@ func (p *Http) PostForm(ctx context.Context,path string,data url.Values)(respons
 	return
 }
 
+// PostFormAndReadAll
+func (p *Http) PostFormAndReadAll(ctx context.Context,pathKey string,data url.Values)(body []byte,err error){
+
+	resp,err := p.PostForm(ctx,pathKey,data)
+
+	if err != nil {
+		return
+	}
+
+	body, err = ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Errorf("post form read error:%s",err.Error())
+
+		err = terror.New(pconst.ERROR_HTTP_READ)
+	}
+
+	return
+}
 // Get
-func (p *Http) Get(ctx context.Context,path string)(response *http.Response,err error){
-	span,ctx := p.ZipkinNewSpan(ctx,path)
+func (p *Http) Get(ctx context.Context,pathKey string,queryString string)(response *http.Response,err error){
+	span,ctx := p.ZipkinNewSpan(ctx,pathKey)
 
 	if span!=nil{
 		defer span.Finish()
 	}
 
-	u := p.Url + path
+	conf := config.HttpGet(p.Service)
 
 
-	client := http.Client{Timeout:p.Timeout}
+	u,err := p.url(ctx,span,conf,pathKey)
+
+	if err!=nil{
+		return
+	}
 
 
-	response,err = client.Get(u)
+	client := http.Client{Timeout:conf.Conn.Timeout}
+
+
+	response,err = client.Get(fmt.Sprintf("%s?%s",u,queryString))
 
 	if err!=nil{
 		msg:= fmt.Sprintf("get url:%s,err:%s",u,err.Error())
@@ -118,3 +120,44 @@ func (p *Http) Get(ctx context.Context,path string)(response *http.Response,err 
 	return
 }
 
+// GetAndReadAll
+func (p *Http) GetAndReadAll(ctx context.Context,pathKey string,queryString string)(body []byte,err error){
+
+	resp,err := p.Get(ctx,pathKey,queryString)
+
+	if err != nil {
+		return
+	}
+
+	body, err = ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Errorf("get read error:%s",err.Error())
+
+		err = terror.New(pconst.ERROR_HTTP_READ)
+	}
+
+	return
+}
+
+func (p *Http) url(ctx context.Context,span opentracing.Span,conf *config.HttpConf,pathKey string)(url string,err error){
+
+	if conf ==nil{
+		msg:= fmt.Sprintf("post form %s,config is nil",p.Service)
+		err = terror.New(pconst.ERROR_HTTP_CONFIG)
+		p.proccessError(span,err,msg)
+		return
+	}
+
+	path := config.HttpGetPath(conf,pathKey)
+
+	if path == ""{
+		msg:= fmt.Sprintf("post form %s,path is nil",pathKey)
+		err = terror.New(pconst.ERROR_HTTP_CONFIG)
+		p.proccessError(span,err,msg)
+	}
+
+	url = conf.Conn.Url + path
+	
+	return
+}
