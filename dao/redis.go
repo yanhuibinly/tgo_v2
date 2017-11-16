@@ -533,7 +533,7 @@ func (p *Redis) doMGet(ctx context.Context,cmd string, args []interface{}, value
 }
 
 // doIncr
-func (p *Redis) doIncr(ctx context.Context,cmd string, key string, value int, expire int, fields ...string) (count int64,err error) {
+func (p *Redis) doIncr(ctx context.Context,cmd string, key string, value int64, expire int, fields ...string) (count int64,err error) {
 
 
 	key = p.getKey(key)
@@ -689,9 +689,10 @@ func (p *Redis) Incr(ctx context.Context,key string) (count int64,err error) {
 	return
 }
 // IncrBy
-func (p *Redis) IncrBy(ctx context.Context,key string, value int) (count int64, err error) {
+func (p *Redis) IncrBy(ctx context.Context,key string, value int64) (count int64, err error) {
 
 	count,err = p.doIncr(ctx,"INCRBY", key, value, 0)
+
 	return
 }
 
@@ -720,7 +721,7 @@ func (p *Redis) MDel(ctx context.Context,key ...string) (err error) {
 /*hash start */
 
 // HIncrby
-func (p *Redis) HIncrby(ctx context.Context,key string, field string, value int) (count int64, err error) {
+func (p *Redis) HIncrby(ctx context.Context,key string, field string, value int64) (count int64, err error) {
 
 	return p.doIncr(ctx,"HINCRBY", key, value, 0, field)
 }
