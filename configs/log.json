@@ -1,0 +1,8 @@
+{
+    "File":"/data/logs/tgov2/tgov2.log",
+    "MaxSize":1,
+    "MaxBackups":1,
+    "MaxAge":1,
+    "Compress":true,
+    "Level":5
+}

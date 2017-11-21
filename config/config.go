@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"github.com/tonyjt/tgo_v2/log"
 )
 
 
@@ -28,7 +27,7 @@ func configGet(name string, data interface{}, defaultData interface{}) {
 	}
 	if err != nil {
 
-		log.Errorf("open %s config file failed:%s", name, err.Error())
+		fmt.Errorf("open %s config file failed:%s", name, err.Error())
 
 		data = defaultData
 
@@ -44,7 +43,7 @@ func configGet(name string, data interface{}, defaultData interface{}) {
 		//}
 		if errDecode != nil {
 			//记录日志
-			log.Errorf(fmt.Sprintf("decode %s config error:%s", name, errDecode.Error()))
+			fmt.Errorf(fmt.Sprintf("decode %s config error:%s", name, errDecode.Error()))
 			data = defaultData
 		}
 	}

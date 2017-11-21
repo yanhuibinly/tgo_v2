@@ -7,8 +7,8 @@ import (
 	"time"
 	"github.com/tonyjt/tgo_v2/terror"
 	"github.com/tonyjt/tgo_v2/pconst"
-	"github.com/tonyjt/tgo_v2/log"
 	"math/rand"
+	"fmt"
 )
 
 type App struct {
@@ -72,21 +72,21 @@ func AppFailoverGet(key string) (string, error) {
 	failoverConfig := AppGet(key)
 
 	if failoverConfig == nil {
-		log.Errorf("config % is null",key)
+		fmt.Errorf("config % is null",key)
 		err = terror.New(pconst.ERROR_CONFIG_NULL)
 	} else {
 
 		failoverUrl := failoverConfig.(string)
 
 		if strings.Trim(failoverUrl," ") == ""{
-			log.Errorf("config % is null",key)
+			fmt.Errorf("config % is null",key)
 			err = terror.New(pconst.ERROR_CONFIG_NULL)
 		} else {
 			failoverArray := strings.Split(failoverUrl, ",")
 
 			randomMax := len(failoverArray)
 			if randomMax == 0 {
-				log.Errorf("config % is empty",key)
+				fmt.Errorf("config % is empty",key)
 				err = terror.New(pconst.ERROR_CONFIG_NULL)
 			} else {
 				var randomValue int
@@ -139,7 +139,7 @@ func AppGetSlice(key string, data interface{}) error {
 
 	if strings.Trim(dataStrConfig," ") == "" {
 
-		log.Errorf("config %s is empty",key)
+		fmt.Errorf("config %s is empty",key)
 		return terror.New(pconst.ERROR_CONFIG_NULL)
 	}
 
@@ -150,7 +150,7 @@ func AppGetSlice(key string, data interface{}) error {
 	//不是指针Slice
 	if dataType.Kind() != reflect.Ptr || dataType.Elem().Kind() != reflect.Slice {
 
-		log.Errorf("config %s is not pt or slice",key)
+		fmt.Errorf("config %s is not pt or slice",key)
 		return terror.New(pconst.ERRPR_CONFIG_SLICE)
 	}
 
@@ -189,11 +189,11 @@ func AppGetSlice(key string, data interface{}) error {
 					var de
 					errConv = json.Unmarshal([]byte(dataStr), de.Interface())*/
 		default:
-			log.Errorf("type not support")
+			fmt.Errorf("type not support")
 			return terror.New(pconst.ERRPR_CONFIG_SLICE_TYPE)
 		}
 		if errConv != nil {
-			log.Errorf("convert config failed error:%s", errConv.Error())
+			fmt.Errorf("convert config failed error:%s", errConv.Error())
 
 			return terror.New(pconst.ERRPR_CONFIG_SLICE_CONVERT)
 		}

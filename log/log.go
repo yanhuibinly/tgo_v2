@@ -1,24 +1,75 @@
 package log
 
-import "fmt"
+import (
+	"github.com/sirupsen/logrus"
+	"github.com/tonyjt/tgo_v2/config"
+	"gopkg.in/natefinch/lumberjack.v2"
+	)
 
-type Level int8
+type Level uint32
 
 const(
-	LevelDebug Level = iota
-	LevelInfo
-	LevelWarn
-	LevelError
+	LevelPanic  Level = iota
 	LevelFatal
+	LevelError
+	LevelWarn
+	LevelInfo
+	LevelDebug
 )
 
-func Log(level Level,msg interface{}) {
-	fmt.Printf("%d:%s\n",level,msg)
+var(
+	logger *logrus.Logger
+)
+func init(){
+	conf := config.LogGet()
+	if conf == nil{
+		panic("log config file not found")
+	}
+	logger = logrus.StandardLogger()
+	logger.Formatter = new(logrus.JSONFormatter)
+	logger.Out = &lumberjack.Logger{
+		Filename: conf.File,
+		MaxSize:conf.MaxSize,
+		MaxBackups:conf.MaxBackups,
+		MaxAge:conf.MaxAge,
+		Compress:conf.Compress}
+
+
+	logger.SetLevel(logrus.Level(conf.Level))
+}
+func Log(level Level,msg ...interface{}) {
+	switch level {
+	case LevelDebug:
+		logger.Debug(msg...)
+	case LevelInfo:
+		logger.Info(msg...)
+	case LevelWarn:
+		logger.Warn(msg...)
+	case LevelError:
+		logger.Error(msg...)
+	case LevelFatal:
+		logger.Fatal(msg...)
+	case LevelPanic:
+		logger.Panic(msg...)
+	}
 }
 
 func Logf(level Level,format string, msg ...interface{}) {
 
-	fmt.Printf("%d:%s\n",level,fmt.Sprintf(format,msg...))
+	switch level {
+	case LevelDebug:
+		logger.Debugf(format,msg...)
+	case LevelInfo:
+		logger.Infof(format,msg...)
+	case LevelWarn:
+		logger.Warnf(format,msg...)
+	case LevelError:
+		logger.Errorf(format,msg...)
+	case LevelFatal:
+		logger.Fatalf(format,msg...)
+	case LevelPanic:
+		logger.Panicf(format,msg...)
+	}
 }
 
 
