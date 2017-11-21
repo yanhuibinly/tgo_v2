@@ -6,7 +6,7 @@
 
 log
 
-	待开发
+	使用logrus+lumberjack
 
 config
 
