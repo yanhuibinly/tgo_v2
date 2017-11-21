@@ -36,7 +36,7 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 	}
 
 	//添加结果
-	if te.Code>=10000 && te.Code<100000{
+	if te.Level == terror.LevelException{
 		c.Set("result", false)
 	}else{
 		c.Set("result", true)
