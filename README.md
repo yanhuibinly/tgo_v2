@@ -16,6 +16,8 @@ config
 
 	支持当前文件夹下的configs，和上一级目录
 
+	code支持code_public和code_private两个文件
+
 dao
 
  	mysql 使用driver自带pool,支持多库
