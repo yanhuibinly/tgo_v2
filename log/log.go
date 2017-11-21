@@ -4,12 +4,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/tonyjt/tgo_v2/config"
 	"gopkg.in/natefinch/lumberjack.v2"
-	)
+)
 
 type Level uint32
 
-const(
-	LevelPanic  Level = iota
+const (
+	LevelPanic Level = iota
 	LevelFatal
 	LevelError
 	LevelWarn
@@ -17,27 +17,27 @@ const(
 	LevelDebug
 )
 
-var(
+var (
 	logger *logrus.Logger
 )
-func init(){
+
+func init() {
 	conf := config.LogGet()
-	if conf == nil{
+	if conf == nil {
 		panic("log config file not found")
 	}
 	logger = logrus.StandardLogger()
 	logger.Formatter = new(logrus.JSONFormatter)
 	logger.Out = &lumberjack.Logger{
-		Filename: conf.File,
-		MaxSize:conf.MaxSize,
-		MaxBackups:conf.MaxBackups,
-		MaxAge:conf.MaxAge,
-		Compress:conf.Compress}
-
+		Filename:   conf.File,
+		MaxSize:    conf.MaxSize,
+		MaxBackups: conf.MaxBackups,
+		MaxAge:     conf.MaxAge,
+		Compress:   conf.Compress}
 
 	logger.SetLevel(logrus.Level(conf.Level))
 }
-func Log(level Level,msg ...interface{}) {
+func Log(level Level, msg ...interface{}) {
 	switch level {
 	case LevelDebug:
 		logger.Debug(msg...)
@@ -54,29 +54,28 @@ func Log(level Level,msg ...interface{}) {
 	}
 }
 
-func Logf(level Level,format string, msg ...interface{}) {
+func Logf(level Level, format string, msg ...interface{}) {
 
 	switch level {
 	case LevelDebug:
-		logger.Debugf(format,msg...)
+		logger.Debugf(format, msg...)
 	case LevelInfo:
-		logger.Infof(format,msg...)
+		logger.Infof(format, msg...)
 	case LevelWarn:
-		logger.Warnf(format,msg...)
+		logger.Warnf(format, msg...)
 	case LevelError:
-		logger.Errorf(format,msg...)
+		logger.Errorf(format, msg...)
 	case LevelFatal:
-		logger.Fatalf(format,msg...)
+		logger.Fatalf(format, msg...)
 	case LevelPanic:
-		logger.Panicf(format,msg...)
+		logger.Panicf(format, msg...)
 	}
 }
 
-
-func Errorf(format string, msg ...interface{}){
-	Logf(LevelError,format,msg...)
+func Errorf(format string, msg ...interface{}) {
+	Logf(LevelError, format, msg...)
 }
 
-func Error(msg interface{}){
-	Log(LevelError,msg)
+func Error(msg interface{}) {
+	Log(LevelError, msg)
 }

@@ -1,15 +1,15 @@
 package config
 
-var(
+var (
 	redisConfig *Redis
 )
 
 type Redis struct {
-	Unpersist  RedisBase	//非持久化,默认使用
-	Persist RedisBase // 持久化Redis
+	Unpersist RedisBase //非持久化,默认使用
+	Persist   RedisBase // 持久化Redis
 }
 
-type RedisBase struct{
+type RedisBase struct {
 	Address         []string
 	Prefix          string
 	Expire          int
@@ -22,8 +22,7 @@ type RedisBase struct{
 	PoolMinActive   int
 }
 
-
-func init(){
+func init() {
 	if FeatureRedis() {
 		redisConfig = &Redis{}
 
@@ -33,10 +32,9 @@ func init(){
 	}
 }
 
-
 func configRedisGetDefault() *Redis {
-	return &Redis{Unpersist:RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2},
-	Persist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2}}
+	return &Redis{Unpersist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2},
+		Persist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2}}
 }
 
 func RedisGet() *Redis {
@@ -46,7 +44,7 @@ func RedisGet() *Redis {
 
 func RedisGetBase(persistent bool) RedisBase {
 
-	conf:= RedisGet()
+	conf := RedisGet()
 
 	if !persistent {
 		return conf.Unpersist

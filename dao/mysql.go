@@ -1,23 +1,24 @@
 package dao
 
 import (
+	"context"
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
+	"github.com/opentracing/opentracing-go"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
-	"github.com/tonyjt/tgo_v2/terror"
 	"github.com/tonyjt/tgo_v2/pconst"
-	"github.com/jinzhu/gorm"
-	"fmt"
-	"time"
-	"context"
-	"github.com/opentracing/opentracing-go"
+	"github.com/tonyjt/tgo_v2/terror"
 	"math/rand"
-	_ "github.com/go-sql-driver/mysql"
+	"time"
 )
 
-var(
+var (
 	dbMysqlWrite map[string]*gorm.DB
 	dbMysqlReads map[string][]*gorm.DB
 )
+
 type IModelMysql interface {
 	GetCreatedTime() time.Time
 	InitTime(t time.Time)
@@ -25,10 +26,10 @@ type IModelMysql interface {
 }
 
 type ModelMysql struct {
-	Id         string `json:"id"`
-	Created_at time.Time	`json:"created_at"`
-	Updated_at time.Time	`json:"updated_at"`
-	TimeCustom bool `sql:"-"`
+	Id         string    `json:"id"`
+	Created_at time.Time `json:"created_at"`
+	Updated_at time.Time `json:"updated_at"`
+	TimeCustom bool      `sql:"-"`
 }
 
 func (m *ModelMysql) GetCreatedTime() time.Time {
@@ -45,14 +46,13 @@ func (m *ModelMysql) SetUpdatedTime(t time.Time) {
 	m.Updated_at = t
 }
 
-
-func init(){
-	if config.FeatureMysql(){
+func init() {
+	if config.FeatureMysql() {
 
 		dbMysqlWrite = make(map[string]*gorm.DB)
 		dbMysqlReads = make(map[string][]*gorm.DB)
 
-		for _,conf := range config.MysqlGetAll() {
+		for _, conf := range config.MysqlGetAll() {
 
 			var err error
 			var dbWrite *gorm.DB
@@ -81,11 +81,11 @@ func init(){
 	}
 }
 
-func initDb(dbName string,configMysql config.MysqlBase,configPool config.MysqlPool) (*gorm.DB,error){
+func initDb(dbName string, configMysql config.MysqlBase, configPool config.MysqlPool) (*gorm.DB, error) {
 	addr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4,utf8&parseTime=True&loc=Local", configMysql.User,
 		configMysql.Password, configMysql.Address, configMysql.Port, dbName)
 
-		resultDb, err := gorm.Open("mysql", addr)
+	resultDb, err := gorm.Open("mysql", addr)
 
 	if err != nil {
 		log.Errorf("connect mysql error: %s", err.Error())
@@ -97,92 +97,93 @@ func initDb(dbName string,configMysql config.MysqlBase,configPool config.MysqlPo
 
 	resultDb.DB().Ping()
 
-	if config.AppEnvIsDev(){
+	if config.AppEnvIsDev() {
 		resultDb.LogMode(true)
 	}
 
-	return resultDb,nil
+	return resultDb, nil
 }
 
-type Mysql struct{
-	DbName string
+type Mysql struct {
+	DbName    string
 	TableName string
 }
 
 // NewMysql NewMysql
-func NewMysql(tableName string) *Mysql{
-	return &Mysql{TableName:tableName}
+func NewMysql(tableName string) *Mysql {
+	return &Mysql{TableName: tableName}
 }
 
-func (p *Mysql) getDbName()string{
-	if p.DbName != ""{
+func (p *Mysql) getDbName() string {
+	if p.DbName != "" {
 		return p.DbName
 	}
-	for _,conf := range config.MysqlGetAll() {
-		if conf.Db !=""{
+	for _, conf := range config.MysqlGetAll() {
+		if conf.Db != "" {
 			return conf.Db
 		}
 	}
 
 	return ""
 }
+
 // GetWriteOrm
-func (p *Mysql) GetWriteOrm(ctx context.Context)( *gorm.DB, error){
+func (p *Mysql) GetWriteOrm(ctx context.Context) (*gorm.DB, error) {
 
-	dbName:=p.getDbName()
+	dbName := p.getDbName()
 
-	span,ctx := p.ZipkinNewSpan(ctx,dbName +":getWriteOrm")
+	span, ctx := p.ZipkinNewSpan(ctx, dbName+":getWriteOrm")
 
-	if span !=nil{
+	if span != nil {
 		defer span.Finish()
 	}
-	if dbMysqlWrite == nil{
+	if dbMysqlWrite == nil {
 		err := terror.New(pconst.ERROR_MYSQL_WRITE_EMPTY)
-		span.SetTag("err:getorm",err)
-		return nil,err
+		span.SetTag("err:getorm", err)
+		return nil, err
 	}
-	return dbMysqlWrite[dbName],nil
+	return dbMysqlWrite[dbName], nil
 }
 
 // GetReadOrm
-func (p *Mysql) GetReadOrm(ctx context.Context)(*gorm.DB,error){
+func (p *Mysql) GetReadOrm(ctx context.Context) (*gorm.DB, error) {
 
-	span,ctx := p.ZipkinNewSpan(ctx,"getReadOrm")
+	span, ctx := p.ZipkinNewSpan(ctx, "getReadOrm")
 
-	if span !=nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	dbName := p.getDbName()
 	conf := dbMysqlReads[dbName]
-	if len(conf)== 0{
+	if len(conf) == 0 {
 		err := terror.New(pconst.ERROR_MYSQL_READ_EMPTY)
-		span.SetTag("err:getorm",err)
-		return nil,err
+		span.SetTag("err:getorm", err)
+		return nil, err
 	}
 
 	var index int
 	if len(conf) > 1 {
 		rand.Seed(time.Now().UnixNano())
 
-		index = rand.Intn(len(conf) -1 )
+		index = rand.Intn(len(conf) - 1)
 
-	}else{
+	} else {
 		index = 0
 	}
 
-	return conf[index],nil
+	return conf[index], nil
 }
 
-func (p *Mysql) ZipkinNewSpan(ctx context.Context,name string)(opentracing.Span,context.Context){
-	if config.FeatureZipkin(){
-		return opentracing.StartSpanFromContext(ctx,fmt.Sprintf("mysql:%s",name))
-	}else{
-		return nil,ctx
+func (p *Mysql) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
+	if config.FeatureZipkin() {
+		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("mysql:%s", name))
+	} else {
+		return nil, ctx
 	}
 }
 
 // Insert
-func (p *Mysql) Insert(ctx context.Context,db *gorm.DB,model IModelMysql)(err error) {
+func (p *Mysql) Insert(ctx context.Context, db *gorm.DB, model IModelMysql) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "insert")
 	if span != nil {
@@ -209,7 +210,7 @@ func (p *Mysql) Insert(ctx context.Context,db *gorm.DB,model IModelMysql)(err er
 }
 
 // Select
-func (p *Mysql) Select(ctx context.Context,db *gorm.DB,condition string, data interface{},skip int,limit int, fields []string,sort string)(err error){
+func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data interface{}, skip int, limit int, fields []string, sort string) (err error) {
 	span, ctx := p.ZipkinNewSpan(ctx, "select")
 	if span != nil {
 		defer span.Finish()
@@ -243,14 +244,14 @@ func (p *Mysql) Select(ctx context.Context,db *gorm.DB,condition string, data in
 
 	errFind = db.Find(data).Error
 
-	if errFind!=nil{
-		err = p.processError(span,errFind,pconst.ERROR_MYSQL_SELECT,"select data error")
+	if errFind != nil {
+		err = p.processError(span, errFind, pconst.ERROR_MYSQL_SELECT, "select data error")
 	}
 	return err
 }
 
 // Update
-func (p *Mysql) Update(ctx context.Context,db *gorm.DB,condition string, sets map[string]interface{}) (err error) {
+func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets map[string]interface{}) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "update")
 	if span != nil {
@@ -269,13 +270,13 @@ func (p *Mysql) Update(ctx context.Context,db *gorm.DB,condition string, sets ma
 
 	errUpdate := db.Table(p.TableName).Where(condition).Updates(sets).Error
 	if errUpdate != nil {
-		err = p.processError(span,errUpdate,pconst.ERROR_MYSQL_UPDATE,"update data error")
+		err = p.processError(span, errUpdate, pconst.ERROR_MYSQL_UPDATE, "update data error")
 	}
 	return err
 }
 
 // Delete
-func (p *Mysql) Delete(ctx context.Context,db *gorm.DB,condition string)(err error){
+func (p *Mysql) Delete(ctx context.Context, db *gorm.DB, condition string) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "delete")
 	if span != nil {
@@ -301,7 +302,7 @@ func (p *Mysql) Delete(ctx context.Context,db *gorm.DB,condition string)(err err
 }
 
 // First
-func (p *Mysql) First(ctx context.Context,db *gorm.DB,condition string, data IModelMysql, sort string) (err error) {
+func (p *Mysql) First(ctx context.Context, db *gorm.DB, condition string, data IModelMysql, sort string) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "first")
 	if span != nil {
@@ -328,14 +329,14 @@ func (p *Mysql) First(ctx context.Context,db *gorm.DB,condition string, data IMo
 
 	errFirst := db.First(data).Error
 
-	if errFirst!=nil{
-		err = p.processError(span,errFind,pconst.ERROR_MYSQL_FIRST,"first data error")
+	if errFirst != nil {
+		err = p.processError(span, errFind, pconst.ERROR_MYSQL_FIRST, "first data error")
 	}
 	return err
 }
 
 // Count
-func (p *Mysql) Count(ctx context.Context,db *gorm.DB,condition string)(count int,err error){
+func (p *Mysql) Count(ctx context.Context, db *gorm.DB, condition string) (count int, err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "count")
 	if span != nil {
@@ -352,29 +353,27 @@ func (p *Mysql) Count(ctx context.Context,db *gorm.DB,condition string)(count in
 		//defer db.Close()
 	}
 
-	errCount:= db.Table(p.TableName).Where(condition).Count(&count).Error
+	errCount := db.Table(p.TableName).Where(condition).Count(&count).Error
 
-	if errCount !=nil{
-		err = p.processError(span,errCount,pconst.ERROR_MYSQL_COUNT,"count data error")
+	if errCount != nil {
+		err = p.processError(span, errCount, pconst.ERROR_MYSQL_COUNT, "count data error")
 	}
 	return
 }
 
+func (p *Mysql) processError(span opentracing.Span, err error, code int, formatter string, a ...interface{}) error {
 
-func (p *Mysql) processError(span opentracing.Span,err error,code int,formatter string, a ...interface{}) error{
-
-	if err==nil{
+	if err == nil {
 		return err
 	}
 	terr := terror.NewFromError(err)
 	terr.Code = code
 
-	log.Errorf("table :%s, %s",p.TableName,fmt.Sprintf(formatter,a...))
+	log.Errorf("table :%s, %s", p.TableName, fmt.Sprintf(formatter, a...))
 
-	if span !=nil{
-		span.SetTag("err",terr)
+	if span != nil {
+		span.SetTag("err", terr)
 	}
 
 	return err
 }
-

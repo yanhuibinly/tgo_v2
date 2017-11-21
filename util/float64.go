@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
-	"strconv"
 	"github.com/tonyjt/tgo_v2/log"
+	"strconv"
 )
 
 func Float64ToInt(value float64, multiplied float64) (intValue int, err error) {

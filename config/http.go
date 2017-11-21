@@ -4,23 +4,23 @@ import (
 	"time"
 )
 
-type Http struct{
+type Http struct {
 	Http []HttpConf
 }
 
-type HttpConf struct{
+type HttpConf struct {
 	Service string
-	Conn HttpConn
-	Paths []HttpPath
+	Conn    HttpConn
+	Paths   []HttpPath
 }
 
 type HttpConn struct {
-	Url string
+	Url     string
 	Timeout time.Duration
 }
 
-type HttpPath struct{
-	Key string
+type HttpPath struct {
+	Key  string
 	Path string
 }
 
@@ -28,21 +28,21 @@ var (
 	httpConfig map[string]*HttpConf
 )
 
-func init(){
+func init() {
 	if FeatureHttp() {
-		conf:= &Http{}
+		conf := &Http{}
 
 		defaultHttpConfig := configHttpGetDefault()
 
 		configGet("http", conf, defaultHttpConfig)
 
-		if len(conf.Http) ==0{
+		if len(conf.Http) == 0 {
 			panic("http config is empty")
 		}
 
 		httpConfig = make(map[string]*HttpConf)
 
-		for i,c:= range conf.Http{
+		for i, c := range conf.Http {
 			httpConfig[c.Service] = &conf.Http[i]
 		}
 	}
@@ -50,26 +50,26 @@ func init(){
 }
 
 func configHttpGetDefault() *Http {
-	return &Http{Http:[]HttpConf{HttpConf{Service:"tgo",Conn:HttpConn{Url:""}}}}
+	return &Http{Http: []HttpConf{HttpConf{Service: "tgo", Conn: HttpConn{Url: ""}}}}
 }
 
-func HttpGet(service string)(*HttpConf){
+func HttpGet(service string) *HttpConf {
 
-	g,ok:= httpConfig[service]
+	g, ok := httpConfig[service]
 
-	if !ok{
+	if !ok {
 		return nil
 	}
 	return g
 }
 
-func HttpGetPath(conf *HttpConf,key string) string{
-	if conf ==nil{
+func HttpGetPath(conf *HttpConf, key string) string {
+	if conf == nil {
 		return ""
 	}
 
-	for _,p := range conf.Paths{
-		if p.Key == key{
+	for _, p := range conf.Paths {
+		if p.Key == key {
 			return p.Path
 		}
 	}

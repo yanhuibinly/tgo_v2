@@ -8,9 +8,9 @@ func TestCodeGetMsg(t *testing.T) {
 
 	code = 1001
 
-	msg:= CodeGetMsg(code)
+	msg := CodeGetMsg(code)
 
-	if msg == "unknown error"{
+	if msg == "unknown error" {
 		t.Error("unknown error")
 	}
 }

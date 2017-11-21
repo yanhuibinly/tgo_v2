@@ -1,14 +1,14 @@
 package config
 
 import (
+	"fmt"
+	"github.com/tonyjt/tgo_v2/pconst"
+	"github.com/tonyjt/tgo_v2/terror"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/tonyjt/tgo_v2/terror"
-	"github.com/tonyjt/tgo_v2/pconst"
-	"math/rand"
-	"fmt"
 )
 
 type App struct {
@@ -16,22 +16,18 @@ type App struct {
 }
 
 var (
-
 	appConfig *App
 )
 
+func init() {
 
-func init(){
+	appConfig = &App{}
 
-		appConfig = &App{}
+	defaultAppConfig := appGetDefault()
 
-		defaultAppConfig := appGetDefault()
-
-		configGet("app", appConfig, defaultAppConfig)
+	configGet("app", appConfig, defaultAppConfig)
 
 }
-
-
 
 func appGetDefault() *App {
 	return &App{map[string]interface{}{"Env": "idc", "UrlUserLogin": "http://user.haiziwang.com/user/CheckLogin"}}
@@ -56,7 +52,7 @@ func AppGetString(key string, defaultConfig string) string {
 	} else {
 		configStr := config.(string)
 
-		if strings.Trim(configStr," ") == ""{
+		if strings.Trim(configStr, " ") == "" {
 			configStr = defaultConfig
 		}
 		return configStr
@@ -72,21 +68,21 @@ func AppFailoverGet(key string) (string, error) {
 	failoverConfig := AppGet(key)
 
 	if failoverConfig == nil {
-		fmt.Errorf("config % is null",key)
+		fmt.Errorf("config % is null", key)
 		err = terror.New(pconst.ERROR_CONFIG_NULL)
 	} else {
 
 		failoverUrl := failoverConfig.(string)
 
-		if strings.Trim(failoverUrl," ") == ""{
-			fmt.Errorf("config % is null",key)
+		if strings.Trim(failoverUrl, " ") == "" {
+			fmt.Errorf("config % is null", key)
 			err = terror.New(pconst.ERROR_CONFIG_NULL)
 		} else {
 			failoverArray := strings.Split(failoverUrl, ",")
 
 			randomMax := len(failoverArray)
 			if randomMax == 0 {
-				fmt.Errorf("config % is empty",key)
+				fmt.Errorf("config % is empty", key)
 				err = terror.New(pconst.ERROR_CONFIG_NULL)
 			} else {
 				var randomValue int
@@ -108,8 +104,7 @@ func AppFailoverGet(key string) (string, error) {
 }
 
 func AppEnvGet() string {
-	strEnv := AppGetString("Env","dev")
-
+	strEnv := AppGetString("Env", "dev")
 
 	return strEnv
 }
@@ -137,9 +132,9 @@ func AppGetSlice(key string, data interface{}) error {
 
 	dataStrConfig := AppGetString(key, "")
 
-	if strings.Trim(dataStrConfig," ") == "" {
+	if strings.Trim(dataStrConfig, " ") == "" {
 
-		fmt.Errorf("config %s is empty",key)
+		fmt.Errorf("config %s is empty", key)
 		return terror.New(pconst.ERROR_CONFIG_NULL)
 	}
 
@@ -150,7 +145,7 @@ func AppGetSlice(key string, data interface{}) error {
 	//不是指针Slice
 	if dataType.Kind() != reflect.Ptr || dataType.Elem().Kind() != reflect.Slice {
 
-		fmt.Errorf("config %s is not pt or slice",key)
+		fmt.Errorf("config %s is not pt or slice", key)
 		return terror.New(pconst.ERRPR_CONFIG_SLICE)
 	}
 
@@ -162,7 +157,7 @@ func AppGetSlice(key string, data interface{}) error {
 
 	for _, dataStr := range dataStrSlice {
 
-		if dataStrConfig ==""{
+		if dataStrConfig == "" {
 			continue
 		}
 		var errConv error

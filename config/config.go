@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 )
 
-
 func configGet(name string, data interface{}, defaultData interface{}) {
 
 	//mux.Lock()
@@ -18,7 +17,7 @@ func configGet(name string, data interface{}, defaultData interface{}) {
 
 	file, err := os.Open(absPath)
 
-	if err!=nil{
+	if err != nil {
 		//找上一级目录
 		absPath, _ = filepath.Abs(fmt.Sprintf("../configs/%s.json", name))
 
@@ -57,7 +56,6 @@ func configPathExist(name string) bool {
 	}
 	return true
 }
-
 
 func ConfigReload() {
 

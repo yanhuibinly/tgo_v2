@@ -2,17 +2,18 @@ package config
 
 type Feature struct {
 	Zipkin bool
-	Mongo bool
-	Mysql bool
-	Redis bool
-	Grpc bool
-	Http bool
+	Mongo  bool
+	Mysql  bool
+	Redis  bool
+	Grpc   bool
+	Http   bool
 }
 
 var (
 	featureConfig *Feature
 )
-func init(){
+
+func init() {
 	featureConfig = &Feature{}
 
 	defaultFeatureConfig := configFeatureGetDefault()
@@ -20,10 +21,8 @@ func init(){
 	configGet("feature", featureConfig, defaultFeatureConfig)
 }
 
-
-
 func configFeatureGetDefault() *Feature {
-	return &Feature{Zipkin:true,Mongo:true,Mysql:true,Redis:true,Grpc:true,Http:true}
+	return &Feature{Zipkin: true, Mongo: true, Mysql: true, Redis: true, Grpc: true, Http: true}
 }
 
 func FeatureGet() *Feature {
@@ -31,26 +30,26 @@ func FeatureGet() *Feature {
 	return featureConfig
 }
 
-func FeatureMongo() bool{
+func FeatureMongo() bool {
 	return featureConfig.Mongo
 }
 
-func FeatureMysql() bool{
+func FeatureMysql() bool {
 	return featureConfig.Mysql
 }
 
-func FeatureZipkin() bool{
+func FeatureZipkin() bool {
 	return featureConfig.Zipkin
 }
 
-func FeatureRedis() bool{
+func FeatureRedis() bool {
 	return featureConfig.Redis
 }
 
-func FeatureGrpc() bool{
+func FeatureGrpc() bool {
 	return featureConfig.Grpc
 }
 
-func FeatureHttp() bool{
+func FeatureHttp() bool {
 	return featureConfig.Http
 }

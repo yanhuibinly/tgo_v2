@@ -1,10 +1,10 @@
 package dao
 
 import (
-	"testing"
-	"google.golang.org/grpc"
 	"context"
 	"fmt"
+	"google.golang.org/grpc"
+	"testing"
 )
 
 func TestDaoGRPC_GetConn(t *testing.T) {
@@ -17,12 +17,11 @@ func TestDaoGRPC_GetConn(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("get failed:%s", err.Error())
-	}else if conn ==nil{
+	} else if conn == nil {
 		t.Error("conn is null")
 	} else {
-		defer daoGrpc.CloseConn(ctx,conn)
+		defer daoGrpc.CloseConn(ctx, conn)
 	}
-
 
 	daoGrpc2 := &Grpc{}
 	daoGrpc2.DialOptions = append(daoGrpc.DialOptions, grpc.WithInsecure())
@@ -32,10 +31,10 @@ func TestDaoGRPC_GetConn(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("get failed:%s", err2.Error())
-	} else if conn2==nil {
+	} else if conn2 == nil {
 		t.Error("conn2 is null")
-	} else{
-		defer daoGrpc.CloseConn(ctx,conn2)
+	} else {
+		defer daoGrpc.CloseConn(ctx, conn2)
 	}
 
 }
@@ -53,7 +52,7 @@ func BenchmarkDaoGRPC_GetConn(b *testing.B) {
 			b.Errorf("get failed:%s", err.Error())
 		} else {
 			fmt.Printf("conn:%v\n", conn)
-			daoGrpc.CloseConn(ctx,conn)
+			daoGrpc.CloseConn(ctx, conn)
 		}
 	}
 

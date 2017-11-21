@@ -2,11 +2,11 @@ package zipkin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/opentracing/opentracing-go/ext"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 )
 
-func MiddlewardHttp() gin.HandlerFunc{
+func MiddlewardHttp() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 

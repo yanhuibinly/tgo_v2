@@ -1,20 +1,21 @@
 package dao
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
+	"github.com/opentracing/opentracing-go"
+	"github.com/tonyjt/tgo_v2/config"
+	"github.com/tonyjt/tgo_v2/log"
+	"github.com/tonyjt/tgo_v2/pconst"
+	"github.com/tonyjt/tgo_v2/terror"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"github.com/tonyjt/tgo_v2/terror"
-	"github.com/tonyjt/tgo_v2/config"
-	"github.com/tonyjt/tgo_v2/pconst"
-	"github.com/tonyjt/tgo_v2/log"
-	"context"
-	"github.com/opentracing/opentracing-go"
 	"strconv"
+	"strings"
+	"time"
 )
+
 // IModelMongo mongo model interface
 type IModelMongo interface {
 	GetCreatedTime() time.Time
@@ -25,7 +26,7 @@ type IModelMongo interface {
 }
 
 type ModelMongo struct {
-	Id         string     `bson:"_id",json:"id"`
+	Id         string    `bson:"_id",json:"id"`
 	Created_at time.Time `bson:"created_at,omitempty",json:"created_at"`
 	Updated_at time.Time `bson:"updated_at,omitempty",json:"updated_at"`
 }
@@ -50,10 +51,9 @@ func (m *ModelMongo) GetId() string {
 	return m.Id
 }
 
-
 // Mongo mongo
 type Mongo struct {
-	DbName string
+	DbName         string
 	CollectionName string
 
 	AutoIncrementId bool
@@ -77,14 +77,14 @@ func NewMongo() *Mongo {
 }
 
 var (
-	sessionMongo    *mgo.Session
-	configMongo *config.Mongo
+	sessionMongo *mgo.Session
+	configMongo  *config.Mongo
 )
 
-func init(){
+func init() {
 	if config.FeatureMongo() {
 
-		for _,c:= range config.MongoGetAll(){
+		for _, c := range config.MongoGetAll() {
 			configMongo := c.Conn
 			if strings.Trim(configMongo.ReadOption, " ") == "" {
 				configMongo.ReadOption = "nearest"
@@ -108,7 +108,7 @@ func init(){
 }
 
 // SetMode 设置模式
-func (p * Mongo) SetMode(session *mgo.Session, dft string) {
+func (p *Mongo) SetMode(session *mgo.Session, dft string) {
 	var mode mgo.Mode
 	modeStr := p.Mode
 	if modeStr == "" {
@@ -138,48 +138,49 @@ func (p * Mongo) SetMode(session *mgo.Session, dft string) {
 }
 
 // GetId 获取id
-func (p * Mongo) GetId(ctx context.Context) (string, error) {
+func (p *Mongo) GetId(ctx context.Context) (string, error) {
 	return p.GetNextSequence(ctx)
 }
 
-func (p *Mongo) getDbName()string{
-	if p.DbName != ""{
+func (p *Mongo) getDbName() string {
+	if p.DbName != "" {
 		return p.DbName
 	}
-	for _,conf := range config.MongoGetAll() {
-		if conf.Db !=""{
+	for _, conf := range config.MongoGetAll() {
+		if conf.Db != "" {
 			return conf.Db
 		}
 	}
 
 	return ""
 }
+
 // GetSession 获取session
-func (p * Mongo) GetSession(span opentracing.Span)(*mgo.Session, string, error) {
+func (p *Mongo) GetSession(span opentracing.Span) (*mgo.Session, string, error) {
 
 	dbName := p.getDbName()
 
 	configMongo := config.MongoGet(dbName).Conn
 
-	if sessionMongo !=nil{
+	if sessionMongo != nil {
 		clone := sessionMongo.Clone()
 		p.SetMode(clone, configMongo.ReadOption)
 		return clone, dbName, nil
 	}
 	msg := "session mongo is nul"
 
-	err:= p.processError(span,errors.New("Mongo Error"), pconst.ERROR_MONGO_SESSION,msg)
+	err := p.processError(span, errors.New("Mongo Error"), pconst.ERROR_MONGO_SESSION, msg)
 
-	if span!=nil{
-		span.SetTag("session_err",err)
+	if span != nil {
+		span.SetTag("session_err", err)
 	}
 	return nil, dbName, err
 }
-func (p * Mongo) GetNextSequence(ctx context.Context) (string, error) {
+func (p *Mongo) GetNextSequence(ctx context.Context) (string, error) {
 
-	span,ctx:= p.ZipkinNewSpan(ctx,"getid")
+	span, ctx := p.ZipkinNewSpan(ctx, "getid")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -205,7 +206,7 @@ func (p * Mongo) GetNextSequence(ctx context.Context) (string, error) {
 	_, errApply := c.Find(condition).Apply(change, &result)
 
 	if errApply != nil {
-		errApply = p.processError(span,errApply, pconst.ERROR_MONGO_FIND,"mongo findAndModify counter %s failed:%s", p.CollectionName, errApply.Error())
+		errApply = p.processError(span, errApply, pconst.ERROR_MONGO_FIND, "mongo findAndModify counter %s failed:%s", p.CollectionName, errApply.Error())
 		terr := terror.NewFromError(errApply)
 		terr.Code = pconst.ERROR_MONGO_SEQUENCE
 		return "0", terr
@@ -224,23 +225,23 @@ func (p * Mongo) GetNextSequence(ctx context.Context) (string, error) {
 		seq = int64(setInt)
 	}
 
-
-	return strconv.FormatInt(seq,10), nil
+	return strconv.FormatInt(seq, 10), nil
 }
 
-func (p *Mongo) ZipkinNewSpan(ctx context.Context,name string)(opentracing.Span,context.Context){
-	if config.FeatureZipkin(){
-		return opentracing.StartSpanFromContext(ctx,fmt.Sprintf("mongo:%s",name))
-	}else{
-		return nil,ctx
+func (p *Mongo) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
+	if config.FeatureZipkin() {
+		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("mongo:%s", name))
+	} else {
+		return nil, ctx
 	}
 }
+
 // Find
-func (p * Mongo) Find(ctx context.Context,condition interface{}, limit int, skip int, data interface{}, sortFields ...string) error {
+func (p *Mongo) Find(ctx context.Context, condition interface{}, limit int, skip int, data interface{}, sortFields ...string) error {
 
-	span,ctx:= p.ZipkinNewSpan(ctx,"find")
+	span, ctx := p.ZipkinNewSpan(ctx, "find")
 
-	if span !=nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -269,10 +270,10 @@ func (p * Mongo) Find(ctx context.Context,condition interface{}, limit int, skip
 	errSelect := s.All(data)
 
 	if errSelect != nil {
-		errSelect = p.processError(span,errSelect, pconst.ERROR_MONGO_ALL,"mongo %s find failed:%v", p.CollectionName, errSelect.Error())
+		errSelect = p.processError(span, errSelect, pconst.ERROR_MONGO_ALL, "mongo %s find failed:%v", p.CollectionName, errSelect.Error())
 
-		if span !=nil{
-			span.SetTag("mongo_err",errSelect)
+		if span != nil {
+			span.SetTag("mongo_err", errSelect)
 		}
 	}
 
@@ -280,10 +281,10 @@ func (p * Mongo) Find(ctx context.Context,condition interface{}, limit int, skip
 }
 
 // FindById
-func (p * Mongo) FindById(ctx context.Context,id int64, data interface{}) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"findbyid")
+func (p *Mongo) FindById(ctx context.Context, id int64, data interface{}) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "findbyid")
 
-	if span !=nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -297,21 +298,20 @@ func (p * Mongo) FindById(ctx context.Context,id int64, data interface{}) error 
 	errFind := session.DB(dbName).C(p.CollectionName).Find(bson.M{"_id": id}).One(data)
 
 	if errFind != nil {
-		e := p.processError(span,errFind, pconst.ERROR_MONGO_FIND,"mongo %s get id failed:%v", p.CollectionName, errFind.Error())
+		e := p.processError(span, errFind, pconst.ERROR_MONGO_FIND, "mongo %s get id failed:%v", p.CollectionName, errFind.Error())
 
 		return e
 	}
-
 
 	return err
 }
 
 // Insert
-func (p * Mongo) Insert(ctx context.Context,data IModelMongo) (error) {
+func (p *Mongo) Insert(ctx context.Context, data IModelMongo) error {
 
-	span,ctx:= p.ZipkinNewSpan(ctx,"insert")
+	span, ctx := p.ZipkinNewSpan(ctx, "insert")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 
@@ -347,7 +347,7 @@ func (p * Mongo) Insert(ctx context.Context,data IModelMongo) (error) {
 
 	if errInsert != nil {
 
-		errInsert = p.processError(span,errInsert, pconst.ERROR_MONGO_INSERT,"mongo %s insert failed:%v", p.CollectionName, errInsert.Error())
+		errInsert = p.processError(span, errInsert, pconst.ERROR_MONGO_INSERT, "mongo %s insert failed:%v", p.CollectionName, errInsert.Error())
 
 		return errInsert
 	}
@@ -355,11 +355,11 @@ func (p * Mongo) Insert(ctx context.Context,data IModelMongo) (error) {
 }
 
 // InsertM
-func (p * Mongo) InsertM(ctx context.Context,data []IModelMongo) error {
+func (p *Mongo) InsertM(ctx context.Context, data []IModelMongo) error {
 
-	span,ctx:= p.ZipkinNewSpan(ctx,"insertm")
+	span, ctx := p.ZipkinNewSpan(ctx, "insertm")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	for _, item := range data {
@@ -399,18 +399,19 @@ func (p * Mongo) InsertM(ctx context.Context,data []IModelMongo) error {
 
 	if errInsert != nil {
 
-		errInsert = p.processError(span,errInsert, pconst.ERROR_MONGO_INSERT,"mongo %s insertM failed:%v", p.CollectionName, errInsert.Error())
+		errInsert = p.processError(span, errInsert, pconst.ERROR_MONGO_INSERT, "mongo %s insertM failed:%v", p.CollectionName, errInsert.Error())
 
 		return errInsert
 	}
 	return nil
 }
+
 // Count
-func (p * Mongo) Count(ctx context.Context,condition interface{}) (int, error) {
+func (p *Mongo) Count(ctx context.Context, condition interface{}) (int, error) {
 
-	span,ctx:= p.ZipkinNewSpan(ctx,"count")
+	span, ctx := p.ZipkinNewSpan(ctx, "count")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 
@@ -426,18 +427,18 @@ func (p * Mongo) Count(ctx context.Context,condition interface{}) (int, error) {
 
 	if errCount != nil {
 
-		errCount = p.processError(span,errCount, pconst.ERROR_MONGO_COUNT,"mongo %s count failed:%v", p.CollectionName, errCount.Error())
+		errCount = p.processError(span, errCount, pconst.ERROR_MONGO_COUNT, "mongo %s count failed:%v", p.CollectionName, errCount.Error())
 
 	}
 	return count, errCount
 }
 
 // Distinct
-func (p * Mongo) Distinct(ctx context.Context,condition interface{}, field string, data interface{}) error {
+func (p *Mongo) Distinct(ctx context.Context, condition interface{}, field string, data interface{}) error {
 
-	span,ctx:= p.ZipkinNewSpan(ctx,"distinct")
+	span, ctx := p.ZipkinNewSpan(ctx, "distinct")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -452,7 +453,7 @@ func (p * Mongo) Distinct(ctx context.Context,condition interface{}, field strin
 
 	if errDistinct != nil {
 
-		errDistinct = p.processError(span,errDistinct, pconst.ERROR_MONGO_DISTINCT,"mongo %s distinct failed:%s", p.CollectionName, errDistinct.Error())
+		errDistinct = p.processError(span, errDistinct, pconst.ERROR_MONGO_DISTINCT, "mongo %s distinct failed:%s", p.CollectionName, errDistinct.Error())
 
 	}
 
@@ -460,10 +461,10 @@ func (p * Mongo) Distinct(ctx context.Context,condition interface{}, field strin
 }
 
 // DistinctWithPage
-func (p * Mongo) DistinctWithPage(ctx context.Context,condition interface{}, field string, limit int, skip int, data interface{}, sortFields map[string]bool) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"distinctwithpage")
+func (p *Mongo) DistinctWithPage(ctx context.Context, condition interface{}, field string, limit int, skip int, data interface{}, sortFields map[string]bool) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "distinctwithpage")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -530,17 +531,16 @@ func (p * Mongo) DistinctWithPage(ctx context.Context,condition interface{}, fie
 	errPipe := pipe.All(data)
 
 	if errPipe != nil {
-		errPipe = p.processError(span,errPipe, pconst.ERROR_MONGO_PIPE_ALL,"mongo %s distinct page failed: %s", p.CollectionName, errPipe.Error())
+		errPipe = p.processError(span, errPipe, pconst.ERROR_MONGO_PIPE_ALL, "mongo %s distinct page failed: %s", p.CollectionName, errPipe.Error())
 	}
 
 	return nil
 }
 
+func (p *Mongo) Sum(ctx context.Context, condition interface{}, sumField string) (int, error) {
+	span, ctx := p.ZipkinNewSpan(ctx, "sum")
 
-func (p * Mongo) Sum(ctx context.Context,condition interface{}, sumField string) (int, error) {
-	span,ctx:= p.ZipkinNewSpan(ctx,"sum")
-
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -567,7 +567,7 @@ func (p * Mongo) Sum(ctx context.Context,condition interface{}, sumField string)
 	errPipe := pipe.One(&result)
 
 	if errPipe != nil {
-		errPipe = p.processError(span,errPipe, pconst.ERROR_MONGO_PIPE_ALL,"mongo %s sum failed: %s", p.CollectionName, errPipe.Error())
+		errPipe = p.processError(span, errPipe, pconst.ERROR_MONGO_PIPE_ALL, "mongo %s sum failed: %s", p.CollectionName, errPipe.Error())
 
 		return 0, errPipe
 	}
@@ -575,10 +575,10 @@ func (p * Mongo) Sum(ctx context.Context,condition interface{}, sumField string)
 	return result.Sum, nil
 }
 
-func (p * Mongo) DistinctCount(ctx context.Context,condition interface{}, field string) (int, error) {
-	span,ctx:= p.ZipkinNewSpan(ctx,"distinctCount")
+func (p *Mongo) DistinctCount(ctx context.Context, condition interface{}, field string) (int, error) {
+	span, ctx := p.ZipkinNewSpan(ctx, "distinctCount")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -604,7 +604,7 @@ func (p * Mongo) DistinctCount(ctx context.Context,condition interface{}, field 
 	errPipe := pipe.One(&result)
 
 	if errPipe != nil {
-		errPipe = p.processError(span,errPipe, pconst.ERROR_MONGO_PIPE_ONE,"mongo %s distinct count failed: %s", p.CollectionName, errPipe.Error())
+		errPipe = p.processError(span, errPipe, pconst.ERROR_MONGO_PIPE_ONE, "mongo %s distinct count failed: %s", p.CollectionName, errPipe.Error())
 
 		return 0, errPipe
 	}
@@ -612,10 +612,10 @@ func (p * Mongo) DistinctCount(ctx context.Context,condition interface{}, field 
 	return result.Count, nil
 }
 
-func (p * Mongo) Update(ctx context.Context,condition interface{}, data map[string]interface{}) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"update")
+func (p *Mongo) Update(ctx context.Context, condition interface{}, data map[string]interface{}) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "update")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -638,16 +638,16 @@ func (p * Mongo) Update(ctx context.Context,condition interface{}, data map[stri
 	errUpdate := coll.Update(condition, updateData)
 
 	if errUpdate != nil {
-		errUpdate = p.processError(span,errUpdate, pconst.ERROR_MONGO_UPDATE,"mongo %s update failed: %s", p.CollectionName, errUpdate.Error())
+		errUpdate = p.processError(span, errUpdate, pconst.ERROR_MONGO_UPDATE, "mongo %s update failed: %s", p.CollectionName, errUpdate.Error())
 	}
 
 	return errUpdate
 }
 
-func (p * Mongo) Upsert(ctx context.Context,condition interface{}, data map[string]interface{}) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"upsert")
+func (p *Mongo) Upsert(ctx context.Context, condition interface{}, data map[string]interface{}) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "upsert")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -670,16 +670,16 @@ func (p * Mongo) Upsert(ctx context.Context,condition interface{}, data map[stri
 	_, errUpsert := coll.Upsert(condition, updateData)
 
 	if errUpsert != nil {
-		errUpsert = p.processError(span,errUpsert, pconst.ERROR_MONGO_UPSERT,"mongo %s errUpsert failed: %s", p.CollectionName, errUpsert.Error())
+		errUpsert = p.processError(span, errUpsert, pconst.ERROR_MONGO_UPSERT, "mongo %s errUpsert failed: %s", p.CollectionName, errUpsert.Error())
 	}
 
 	return errUpsert
 }
 
-func (p * Mongo) RemoveId(ctx context.Context,id interface{}) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"removeid")
+func (p *Mongo) RemoveId(ctx context.Context, id interface{}) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "removeid")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -695,16 +695,16 @@ func (p * Mongo) RemoveId(ctx context.Context,id interface{}) error {
 	errRemove := coll.RemoveId(id)
 
 	if errRemove != nil {
-		errRemove = p.processError(span,errRemove, pconst.ERROR_MONGO_REMOVEID,"mongo %s removeId failed: %s, id:%v", p.CollectionName, errRemove.Error(), id)
+		errRemove = p.processError(span, errRemove, pconst.ERROR_MONGO_REMOVEID, "mongo %s removeId failed: %s, id:%v", p.CollectionName, errRemove.Error(), id)
 	}
 
 	return errRemove
 }
 
-func (p * Mongo) RemoveAll(ctx context.Context,selector interface{}) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"removeAll")
+func (p *Mongo) RemoveAll(ctx context.Context, selector interface{}) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "removeAll")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -720,16 +720,16 @@ func (p * Mongo) RemoveAll(ctx context.Context,selector interface{}) error {
 	_, errRemove := coll.RemoveAll(selector)
 
 	if errRemove != nil {
-		errRemove = p.processError(span,errRemove, pconst.ERROR_MONGO_REMOVEALL,"mongo %s removeAll failed: %s, selector:%v", p.CollectionName, errRemove.Error(), selector)
+		errRemove = p.processError(span, errRemove, pconst.ERROR_MONGO_REMOVEALL, "mongo %s removeAll failed: %s, selector:%v", p.CollectionName, errRemove.Error(), selector)
 	}
 
 	return errRemove
 }
 
-func (p * Mongo) UpdateAllSupported(ctx context.Context,condition map[string]interface{}, update map[string]interface{}) error {
-	span,ctx:= p.ZipkinNewSpan(ctx,"updateAllSupported")
+func (p *Mongo) UpdateAllSupported(ctx context.Context, condition map[string]interface{}, update map[string]interface{}) error {
+	span, ctx := p.ZipkinNewSpan(ctx, "updateAllSupported")
 
-	if span != nil{
+	if span != nil {
 		defer span.Finish()
 	}
 	session, dbName, err := p.GetSession(span)
@@ -747,13 +747,13 @@ func (p * Mongo) UpdateAllSupported(ctx context.Context,condition map[string]int
 	errUpdate := coll.Update(condition, update)
 
 	if errUpdate != nil {
-		errUpdate = p.processError(span,errUpdate, pconst.ERROR_MONGO_UPDATE,"mongo %s update failed: %s", p.CollectionName, errUpdate.Error())
+		errUpdate = p.processError(span, errUpdate, pconst.ERROR_MONGO_UPDATE, "mongo %s update failed: %s", p.CollectionName, errUpdate.Error())
 	}
 
 	return errUpdate
 }
 
-func (p * Mongo) processError(span opentracing.Span,err error, code int,formatter string, a ...interface{}) error {
+func (p *Mongo) processError(span opentracing.Span, err error, code int, formatter string, a ...interface{}) error {
 	if err.Error() == "not found" {
 		return nil
 	}
@@ -761,12 +761,11 @@ func (p * Mongo) processError(span opentracing.Span,err error, code int,formatte
 	terr := terror.NewFromError(err)
 	terr.Code = code
 
-	log.Errorf("collection :%s, %s",p.CollectionName,fmt.Sprintf(formatter,a...))
+	log.Errorf("collection :%s, %s", p.CollectionName, fmt.Sprintf(formatter, a...))
 
-	if span !=nil{
-		span.SetTag("err",terr)
+	if span != nil {
+		span.SetTag("err", terr)
 	}
 
 	return err
 }
-

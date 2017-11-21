@@ -1,55 +1,55 @@
 package tgo_v2
 
 import (
+	"bytes"
 	"encoding/json"
-	"net/http"
 	"github.com/gin-gonic/gin"
-	"strings"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
 	"github.com/tonyjt/tgo_v2/terror"
-	"bytes"
+	"net/http"
+	"strings"
 )
 
 func ResponseReturnJsonNoP(c *gin.Context, err error, model interface{}) {
 
 	ResponseJsonWithCallbackFlag(c, err, model, false)
 }
-func ResponseJson(c *gin.Context, err error, model interface{}){
-	ResponseJsonWithCallbackFlag(c,err,model,true)
+func ResponseJson(c *gin.Context, err error, model interface{}) {
+	ResponseJsonWithCallbackFlag(c, err, model, true)
 }
 func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, callbackFlag bool) {
 	var rj interface{}
 
 	var te *terror.TError
 	var ok bool
-	if err==nil{
-		te =terror.New(pconst.ERROR_OK)
-	}else{
-		if te,ok = err.(*terror.TError); !ok{
+	if err == nil {
+		te = terror.New(pconst.ERROR_OK)
+	} else {
+		if te, ok = err.(*terror.TError); !ok {
 			te = terror.NewFromError(err)
 		}
 		if te.Code == 0 {
-			te.Code  = 1001
+			te.Code = 1001
 		}
 	}
 
 	//添加结果
-	if te.Level == terror.LevelException{
+	if te.Level == terror.LevelException {
 		c.Set("result", false)
-	}else{
+	} else {
 		c.Set("result", true)
 	}
 
-	if strings.Trim(te.Msg, " ") == ""{
+	if strings.Trim(te.Msg, " ") == "" {
 		te.Msg = config.CodeGetMsg(te.Code)
 	}
 
 	rj = gin.H{
-		"code":    te.Code,
-		"msg": te.GetMsg(),
-		"data":    model,
+		"code": te.Code,
+		"msg":  te.GetMsg(),
+		"data": model,
 	}
 
 	var callback string
@@ -68,7 +68,7 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 		encoder := json.NewEncoder(c.Writer)
 		encoder.SetEscapeHTML(false)
 		err := encoder.Encode(rj)
-		if err!=nil{
+		if err != nil {
 			panic(err)
 		}
 	} else {
@@ -80,7 +80,6 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 		}
 	}
 }
-
 
 func responseJSONMarshal(t interface{}) ([]byte, error) {
 	buffer := &bytes.Buffer{}

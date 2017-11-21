@@ -1,18 +1,17 @@
 package config
 
-
-type Mysql struct{
+type Mysql struct {
 	Mysql []MysqlConf
 }
-type MysqlConf struct{
-	Db string
+type MysqlConf struct {
+	Db   string
 	Conn MysqlConn
 }
 
 type MysqlConn struct {
 	Write MysqlBase
 	Reads []MysqlBase
-	Pool	MysqlPool
+	Pool  MysqlPool
 }
 type MysqlBase struct {
 	Address  string
@@ -22,42 +21,41 @@ type MysqlBase struct {
 }
 
 type MysqlPool struct {
-	Max int
-	IdleMax int
+	Max             int
+	IdleMax         int
 	LifeTimeSeconds int
 }
 
 var (
 	mysqlConfig map[string]MysqlConf
 )
-func init(){
+
+func init() {
 	if FeatureMysql() {
-		config:= &Mysql{}
+		config := &Mysql{}
 
 		defaultMysqlConfig := configMysqlGetDefault()
 
 		configGet("mysql", config, defaultMysqlConfig)
 
-		if len(config.Mysql) ==0{
+		if len(config.Mysql) == 0 {
 			panic("mysql config is empty")
 		}
 
 		mysqlConfig = make(map[string]MysqlConf)
 
-		for i,c:= range config.Mysql{
+		for i, c := range config.Mysql {
 			mysqlConfig[c.Db] = config.Mysql[i]
 		}
 	}
 }
 
-
-
 func configMysqlGetDefault() *Mysql {
-	return &Mysql{Mysql:[]MysqlConf{MysqlConf{
-		Db:"tgo",
-		Conn:MysqlConn{Write:  MysqlBase{"ip", 33062, "user", "password"},
+	return &Mysql{Mysql: []MysqlConf{MysqlConf{
+		Db: "tgo",
+		Conn: MysqlConn{Write: MysqlBase{"ip", 33062, "user", "password"},
 			Reads: []MysqlBase{MysqlBase{"ip", 3306, "user", "password"}},
-			Pool: MysqlPool{Max:16,IdleMax:5,LifeTimeSeconds:0},}}}}
+			Pool:  MysqlPool{Max: 16, IdleMax: 5, LifeTimeSeconds: 0}}}}}
 }
 
 func MysqlGet(dbName string) MysqlConf {
@@ -65,6 +63,6 @@ func MysqlGet(dbName string) MysqlConf {
 	return mysqlConfig[dbName]
 }
 
-func MysqlGetAll()map[string]MysqlConf{
+func MysqlGetAll() map[string]MysqlConf {
 	return mysqlConfig
 }
