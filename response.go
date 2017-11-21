@@ -43,7 +43,7 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 	}
 
 	if strings.Trim(te.Msg, " ") == ""{
-		te.Msg = config.CodeGetMessage(te.Code)
+		te.Msg = config.CodeGetMsg(te.Code)
 	}
 
 	rj = gin.H{
