@@ -27,7 +27,7 @@ func configGet(name string, data interface{}, defaultData interface{}) {
 	}
 	if err != nil {
 
-		fmt.Errorf("open %s config file failed:%s", name, err.Error())
+		panic(fmt.Sprintf("open %s config file failed:%s", name, err.Error()))
 
 		data = defaultData
 
