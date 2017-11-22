@@ -6,7 +6,7 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 )
 
-func MiddlewardHttp() gin.HandlerFunc {
+func MiddlewareHttp() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
