@@ -26,24 +26,24 @@ type IModelMysql interface {
 }
 
 type ModelMysql struct {
-	Id         string    `json:"id"`
-	Created_at time.Time `json:"created_at"`
-	Updated_at time.Time `json:"updated_at"`
+	Id         int       `json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 	TimeCustom bool      `sql:"-"`
 }
 
 func (m *ModelMysql) GetCreatedTime() time.Time {
-	return m.Created_at
+	return m.CreatedAt
 }
 
 func (m *ModelMysql) InitTime(t time.Time) {
 	if !m.TimeCustom {
-		m.Created_at = t
-		m.Updated_at = t
+		m.CreatedAt = t
+		m.UpdatedAt = t
 	}
 }
 func (m *ModelMysql) SetUpdatedTime(t time.Time) {
-	m.Updated_at = t
+	m.UpdatedAt = t
 }
 
 func init() {

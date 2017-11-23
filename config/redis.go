@@ -38,7 +38,9 @@ func configRedisGetDefault() *Redis {
 }
 
 func RedisGet() *Redis {
-
+	if redisConfig == nil {
+		panic("redis config is nill")
+	}
 	return redisConfig
 }
 

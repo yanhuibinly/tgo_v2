@@ -27,6 +27,8 @@ func configLogGetDefault() *Log {
 }
 
 func LogGet() *Log {
-
+	if logConfig == nil {
+		panic("log config is nil")
+	}
 	return logConfig
 }

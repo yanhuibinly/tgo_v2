@@ -1,6 +1,6 @@
 {
   "ServiceName":"tgov2",
-  "CollectorEndpoint":"172.172.177.19:9411/api/v1/spans",
+  "CollectorEndpoint":"http://172.172.177.16:9411/api/v1/spans",
   "Debug":false,
   "SameSpan":true,
   "TraceID128Bit":true

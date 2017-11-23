@@ -81,6 +81,7 @@ type Redis struct {
 }
 
 func (p *Redis) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
+
 	if config.FeatureZipkin() {
 		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("redis:%s", name))
 	} else {

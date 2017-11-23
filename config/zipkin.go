@@ -32,6 +32,8 @@ func configZipkinGetDefault() *ConfigZipkin {
 }
 
 func ZipkinGet() *ConfigZipkin {
-
+	if zipkinConfig == nil {
+		panic("zipconfig is nil")
+	}
 	return zipkinConfig
 }

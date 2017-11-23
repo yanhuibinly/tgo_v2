@@ -35,3 +35,14 @@ error
 util
 
   	放一些工具类的
+
+被墙的package地址
+
+    google.golang.org/grpc
+    下载地址：github.com/grpc/grpc-go
+
+    google.golang.org/genproto
+    下载地址：github.com/google/go-genproto
+
+    golang.org/x/net
+    下载地址：github.com/golang/net

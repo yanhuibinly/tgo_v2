@@ -45,6 +45,9 @@ func configMongoGetDefault() *Mongo {
 }
 
 func MongoGet(dbName string) MongoConf {
+	if mongoConfig == nil {
+		panic("mongo config is nil")
+	}
 	return mongoConfig[dbName]
 }
 func MongoGetAll() map[string]MongoConf {

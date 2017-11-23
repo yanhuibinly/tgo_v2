@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"fmt"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/opentracing/opentracing-go"
 	"github.com/tonyjt/gogrpc"
 	"github.com/tonyjt/tgo_v2/config"
@@ -68,6 +69,10 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 		dialOptions := append(p.DialOptions, grpc.WithBalancer(balancer))
 		if conf.Insecure {
 			dialOptions = append(dialOptions, grpc.WithInsecure())
+		}
+		if config.FeatureZipkin() {
+			tracer := opentracing.GlobalTracer()
+			dialOptions = append(dialOptions, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 		}
 		conn, err = grpc.Dial(p.Service, dialOptions...)
 

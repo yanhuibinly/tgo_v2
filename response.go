@@ -92,3 +92,25 @@ func responseJSONMarshal(t interface{}) ([]byte, error) {
 func ResponseRedirect(c *gin.Context, url string) {
 	c.Redirect(http.StatusMovedPermanently, url)
 }
+
+func ResponseGrpc(err error) (code int64, msg string) {
+
+	var codeint int
+	if err == nil {
+		codeint = 1001
+	} else {
+		var te *terror.TError
+		var ok bool
+		if te, ok = err.(*terror.TError); !ok {
+			te = terror.NewFromError(err)
+		}
+		if te.Code == 0 {
+			te.Code = 1001
+		}
+		codeint = te.Code
+	}
+
+	msg = config.CodeGetMsg(codeint)
+	code = int64(codeint)
+	return
+}

@@ -2,8 +2,10 @@ package zipkin
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+	"google.golang.org/grpc"
 )
 
 func MiddlewareHttp() gin.HandlerFunc {
@@ -34,4 +36,9 @@ func MiddlewareHttp() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func MiddlewardGrpc() grpc.UnaryServerInterceptor {
+	return otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer(), otgrpc.LogPayloads())
+
 }

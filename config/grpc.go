@@ -1,20 +1,19 @@
 package config
 
-
-type Grpc struct{
+type Grpc struct {
 	Grpc []GrpcConf
 }
 
 type GrpcConf struct {
-	Service      string
+	Service  string
 	Insecure bool
-	Conn []string
+	Conn     []string
 }
-
 
 var (
 	grpcConfig map[string]*GrpcConf
 )
+
 func init() {
 
 	if FeatureGrpc() {
@@ -36,16 +35,17 @@ func init() {
 	}
 }
 
-
-
 func configGrpcGetDefault() *Grpc {
-	return &Grpc{Grpc:[]GrpcConf{GrpcConf{Service:"tgo",Conn:[]string{}}}}
+	return &Grpc{Grpc: []GrpcConf{GrpcConf{Service: "tgo", Conn: []string{}}}}
 }
 
-func GrpcGet(service string)(*GrpcConf){
-	g,ok:= grpcConfig[service]
+func GrpcGet(service string) *GrpcConf {
+	if grpcConfig == nil {
+		panic("grpc config is nil")
+	}
+	g, ok := grpcConfig[service]
 
-	if !ok{
+	if !ok {
 		return nil
 	}
 	return g

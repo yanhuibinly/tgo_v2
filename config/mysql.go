@@ -59,7 +59,9 @@ func configMysqlGetDefault() *Mysql {
 }
 
 func MysqlGet(dbName string) MysqlConf {
-
+	if mysqlConfig == nil {
+		panic("mysql config is nil")
+	}
 	return mysqlConfig[dbName]
 }
 

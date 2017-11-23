@@ -26,7 +26,9 @@ func configFeatureGetDefault() *Feature {
 }
 
 func FeatureGet() *Feature {
-
+	if featureConfig == nil {
+		panic("feature config is nil")
+	}
 	return featureConfig
 }
 

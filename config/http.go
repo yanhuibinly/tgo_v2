@@ -55,6 +55,9 @@ func configHttpGetDefault() *Http {
 
 func HttpGet(service string) *HttpConf {
 
+	if httpConfig == nil {
+		panic("http config is nil")
+	}
 	g, ok := httpConfig[service]
 
 	if !ok {
