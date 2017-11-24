@@ -342,7 +342,6 @@ func (p *Mongo) Insert(ctx context.Context, data IModelMongo) error {
 
 	coll := session.DB(dbName).C(p.CollectionName)
 
-	fmt.Println(data.GetId())
 	errInsert := coll.Insert(data)
 
 	if errInsert != nil {
