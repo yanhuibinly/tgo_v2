@@ -2,6 +2,7 @@
   "mysql": [{
     "Db":"tgo",
     "Conn":{
+      "DbName":"tgo",
       "Write":{
         "Address":"172.172.177.20",
         "Port":33069,
@@ -24,6 +25,7 @@
     {
       "Db":"tgo1",
       "Conn":{
+        "DbName":"tgo1",
         "Write":{
           "Address":"172.172.177.20",
           "Port":33069,

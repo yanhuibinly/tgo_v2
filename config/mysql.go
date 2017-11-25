@@ -9,9 +9,10 @@ type MysqlConf struct {
 }
 
 type MysqlConn struct {
-	Write MysqlBase
-	Reads []MysqlBase
-	Pool  MysqlPool
+	DbName string
+	Write  MysqlBase
+	Reads  []MysqlBase
+	Pool   MysqlPool
 }
 type MysqlBase struct {
 	Address  string

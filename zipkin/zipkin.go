@@ -10,6 +10,9 @@ import (
 )
 
 func Load(hostPort string) {
+	if !config.FeatureZipkin() {
+		panic("zipkin feature is false")
+	}
 	config := config.ZipkinGet()
 
 	collector, err := zipkintracer.NewHTTPCollector(config.CollectorEndpoint)

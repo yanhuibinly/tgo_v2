@@ -56,7 +56,7 @@ func init() {
 
 			var err error
 			var dbWrite *gorm.DB
-			dbWrite, err = initDb(conf.Db, conf.Conn.Write, conf.Conn.Pool)
+			dbWrite, err = initDb(conf.Conn.DbName, conf.Conn.Write, conf.Conn.Pool)
 
 			if err != nil {
 				panic("connect to mysql write server failed")
@@ -65,7 +65,7 @@ func init() {
 			dbMysqlWrite[conf.Db] = dbWrite
 
 			for _, c := range conf.Conn.Reads {
-				d, err := initDb(conf.Db, c, conf.Conn.Pool)
+				d, err := initDb(conf.Conn.DbName, c, conf.Conn.Pool)
 
 				if err == nil {
 					dbMysqlReads[conf.Db] = append(dbMysqlReads[conf.Db], d)
