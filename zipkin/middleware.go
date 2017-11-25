@@ -38,7 +38,7 @@ func MiddlewareHttp() gin.HandlerFunc {
 	}
 }
 
-func MiddlewardGrpc() grpc.UnaryServerInterceptor {
+func MiddlewareGrpc() grpc.UnaryServerInterceptor {
 	return otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer(), otgrpc.LogPayloads())
 
 }
