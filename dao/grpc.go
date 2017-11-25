@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/opentracing/opentracing-go"
-	"github.com/tonyjt/gogrpc"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
 	"github.com/tonyjt/tgo_v2/terror"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer"
+	//"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/resolver/manual"
 	"sync"
 )
 
@@ -62,11 +65,9 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 			err = terror.New(pconst.ERROR_GRPC_CONFIG)
 			return
 		}
-		balancer := gogrpc.NewBalancerIp()
+		b := balancer.Get("round_robin")
 
-		balancer.SetAddr(conf.Conn...)
-
-		dialOptions := append(p.DialOptions, grpc.WithBalancer(balancer))
+		dialOptions := append(p.DialOptions, grpc.WithBalancerBuilder(b))
 		if conf.Insecure {
 			dialOptions = append(dialOptions, grpc.WithInsecure())
 		}
@@ -74,7 +75,10 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 			tracer := opentracing.GlobalTracer()
 			dialOptions = append(dialOptions, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
 		}
-		conn, err = grpc.Dial(p.Service, dialOptions...)
+		r, cleanup := manual.GenerateAndRegisterManualResolver()
+		defer cleanup()
+
+		conn, err = grpc.Dial(r.Scheme()+":///test.server", dialOptions...)
 
 		if err != nil {
 			msg := fmt.Sprintf("dail failed,service:%s,error:%s", p.Service, err.Error())
@@ -82,6 +86,12 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 			p.proccessError(span, err, msg)
 			return
 		}
+		var addr []resolver.Address
+		for _, a := range conf.Conn {
+			addr = append(addr, resolver.Address{Addr: a})
+		}
+		r.NewAddress(addr)
+
 		grpcConnMap[p.Service] = conn
 	}
 
