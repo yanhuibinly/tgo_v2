@@ -59,6 +59,30 @@ func AppGetString(key string, defaultConfig string) string {
 	}
 }
 
+func AppGetFloat64(key string, defaultConfig float64) float64 {
+
+	config := AppGet(key)
+
+	if config == nil {
+		return defaultConfig
+	} else {
+		var configFloat64 float64
+		var ok bool
+		if configFloat64, ok = config.(float64); !ok {
+			configFloat64 = defaultConfig
+		}
+
+		return configFloat64
+	}
+}
+
+func AppGetInt(key string, defaultConfig int) int {
+
+	cf := AppGetFloat64(key, float64(defaultConfig))
+
+	return int(cf)
+}
+
 func AppFailoverGet(key string) (string, error) {
 
 	var server string
