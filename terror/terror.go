@@ -3,7 +3,6 @@ package terror
 import (
 	"fmt"
 	"github.com/tonyjt/tgo_v2/pconst"
-	"strconv"
 )
 
 type TError struct {
@@ -39,7 +38,7 @@ func NewFromError(err error) *TError {
 
 func (p *TError) GetMsg() string {
 	if p.Msg == "" && p.MsgCustom == "" {
-		return strconv.Itoa(p.Code)
+		return fmt.Sprintf("terror,code:%d", p.Code)
 	}
 	if p.MsgCustom == "" {
 		return p.Msg
