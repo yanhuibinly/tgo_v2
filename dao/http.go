@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/tonyjt/tgo_v2/config"
@@ -135,6 +136,17 @@ func (p *Http) GetAndReadAll(ctx context.Context, pathKey string, queryString st
 		err = terror.New(pconst.ERROR_HTTP_READ)
 	}
 
+	return
+}
+
+// UnmarshalBody
+func (p *Http) UnmarshalBody(ctx context.Context, body []byte, data interface{}) (err error) {
+	err = json.Unmarshal(body, data)
+
+	if err != nil {
+		log.Errorf("json unmarshal failed,error:%s", err.Error())
+		err = terror.New(pconst.ERROR_HTTP_UNMARSHAL)
+	}
 	return
 }
 
