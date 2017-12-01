@@ -79,3 +79,19 @@ func Errorf(format string, msg ...interface{}) {
 func Error(msg interface{}) {
 	Log(LevelError, msg)
 }
+
+
+type LogStruct struct {
+}
+
+func NewLog() *LogStruct {
+	return &LogStruct{}
+}
+
+func (p *LogStruct) Error(format string, a ...interface{}) {
+	Errorf(format, a...)
+}
+
+func (p *LogStruct) Info(format string, a ...interface{}) {
+	Logf(LevelInfo,format, a...)
+}

@@ -20,7 +20,7 @@ type Http struct {
 
 func (p *Http) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
 	if config.FeatureZipkin() {
-		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("http:%s", name))
+		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("http:%s/%s", p.Service, name))
 	} else {
 		return nil, ctx
 	}
