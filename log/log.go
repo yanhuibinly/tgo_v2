@@ -80,7 +80,6 @@ func Error(msg interface{}) {
 	Log(LevelError, msg)
 }
 
-
 type LogStruct struct {
 }
 
@@ -93,5 +92,5 @@ func (p *LogStruct) Error(format string, a ...interface{}) {
 }
 
 func (p *LogStruct) Info(format string, a ...interface{}) {
-	Logf(LevelInfo,format, a...)
+	Logf(LevelInfo, format, a...)
 }
