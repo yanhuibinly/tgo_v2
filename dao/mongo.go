@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
@@ -763,6 +764,7 @@ func (p *Mongo) processError(span opentracing.Span, err error, code int, formatt
 	log.Errorf("collection :%s, %s", p.CollectionName, fmt.Sprintf(formatter, a...))
 
 	if span != nil {
+		ext.Error.Set(span, true)
 		span.SetTag("err", terr)
 	}
 

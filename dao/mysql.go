@@ -6,6 +6,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
@@ -372,7 +373,8 @@ func (p *Mysql) processError(span opentracing.Span, err error, code int, formatt
 	log.Errorf("table :%s, %s", p.TableName, fmt.Sprintf(formatter, a...))
 
 	if span != nil {
-		span.SetTag("err", terr)
+		ext.Error.Set(span, true)
+		span.SetTag("err", err)
 	}
 
 	return err

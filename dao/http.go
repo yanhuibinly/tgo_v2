@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
@@ -28,7 +29,9 @@ func (p *Http) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span
 func (p *Http) proccessError(span opentracing.Span, err error, msg string) error {
 	log.Error(msg)
 	if span != nil {
+		ext.Error.Set(span, true)
 		span.SetTag("err", err)
+
 	}
 	return err
 }

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 	//"google.golang.org/grpc/resolver"
+	"github.com/opentracing/opentracing-go/ext"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 	"sync"
@@ -38,6 +39,7 @@ func (p *Grpc) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span
 func (p *Grpc) proccessError(span opentracing.Span, err error, msg string) error {
 	log.Error(msg)
 	if span != nil {
+		ext.Error.Set(span, true)
 		span.SetTag("err", err)
 	}
 	return err
@@ -131,8 +133,9 @@ func (p *Grpc) Invoke(ctx context.Context, conn *grpc.ClientConn, funcName strin
 	err = funcInvoke(ctx)
 
 	if err != nil {
-		log.Errorf("grpc error :%s", err.Error())
+		msg := fmt.Sprintf("grpc error :%s", err.Error())
 		err = terror.New(pconst.ERROR_GRPC_INVOKE)
+		p.proccessError(span, err, msg)
 	}
 
 	return

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/tonyjt/tgo_v2/config"
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
@@ -574,6 +575,7 @@ func (p *Redis) doDel(ctx context.Context, cmd string, data ...interface{}) (err
 
 func (p *Redis) ZipkinTag(span opentracing.Span, tag string, err error) {
 	if span != nil {
+		ext.Error.Set(span, true)
 		span.SetTag(tag, err)
 	}
 }
