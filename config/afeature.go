@@ -7,6 +7,7 @@ type Feature struct {
 	Redis  bool
 	Grpc   bool
 	Http   bool
+	Es     bool
 }
 
 var (
@@ -54,4 +55,8 @@ func FeatureGrpc() bool {
 
 func FeatureHttp() bool {
 	return featureConfig.Http
+}
+
+func FeatureEs() bool {
+	return featureConfig.Es
 }

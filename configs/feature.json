@@ -4,5 +4,6 @@
   "Mysql":true,
   "Redis":true,
   "Grpc":true,
-  "Http":true
+  "Http":true,
+  "ES":true
 }
