@@ -1,7 +1,8 @@
 package pconst
 
 const (
-	ERROR_OK = 1001
+	ERROR_OK              = 1001
+	ERROR_MYSQL_NOT_FOUND = 100
 )
 const (
 	ERROR_SYSTEM = 10000

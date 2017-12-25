@@ -246,7 +246,11 @@ func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data 
 	errFind = db.Find(data).Error
 
 	if errFind != nil {
-		err = p.processError(span, errFind, pconst.ERROR_MYSQL_SELECT, "select data error")
+		if errFind.Error() == "record not found" {
+			err = p.processError(span, errFind, pconst.ERROR_MYSQL_NOT_FOUND, "select data is empty")
+		} else {
+			err = p.processError(span, errFind, pconst.ERROR_MYSQL_SELECT, "select data error")
+		}
 	}
 	return err
 }
@@ -367,8 +371,6 @@ func (p *Mysql) processError(span opentracing.Span, err error, code int, formatt
 	if err == nil {
 		return err
 	}
-	terr := terror.NewFromError(err)
-	terr.Code = code
 
 	log.Errorf("table :%s, %s", p.TableName, fmt.Sprintf(formatter, a...))
 
@@ -377,5 +379,7 @@ func (p *Mysql) processError(span opentracing.Span, err error, code int, formatt
 		span.SetTag("err", err)
 	}
 
-	return err
+	terr := terror.New(code)
+
+	return terr
 }
