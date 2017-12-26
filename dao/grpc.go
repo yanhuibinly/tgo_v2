@@ -10,7 +10,7 @@ import (
 	"github.com/tonyjt/tgo_v2/pconst"
 	"github.com/tonyjt/tgo_v2/terror"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/balancer/roundrobin"
 	//"google.golang.org/grpc/resolver"
 	"github.com/opentracing/opentracing-go/ext"
 	"google.golang.org/grpc/resolver"
@@ -67,9 +67,9 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 			err = terror.New(pconst.ERROR_GRPC_CONFIG)
 			return
 		}
-		b := balancer.Get("round_robin")
+		//b := balancer.Get("round_robin")
 
-		dialOptions := append(p.DialOptions, grpc.WithBalancerBuilder(b))
+		dialOptions := append(p.DialOptions, grpc.WithBalancerName(roundrobin.Name))
 		if conf.Insecure {
 			dialOptions = append(dialOptions, grpc.WithInsecure())
 		}
