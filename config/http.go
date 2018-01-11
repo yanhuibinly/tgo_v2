@@ -32,11 +32,9 @@ func init() {
 	if FeatureHttp() {
 		conf := &Http{}
 
-		defaultHttpConfig := configHttpGetDefault()
+		err := configGet("http", conf)
 
-		configGet("http", conf, defaultHttpConfig)
-
-		if len(conf.Http) == 0 {
+		if err != nil || len(conf.Http) == 0 {
 			panic("http config is empty")
 		}
 

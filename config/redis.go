@@ -26,9 +26,11 @@ func init() {
 	if FeatureRedis() {
 		redisConfig = &Redis{}
 
-		defaultRedisConfig := configRedisGetDefault()
+		err := configGet("redis", redisConfig)
 
-		configGet("redis", redisConfig, defaultRedisConfig)
+		if err != nil {
+			panic("redis config error")
+		}
 	}
 }
 

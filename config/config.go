@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func configGet(name string, data interface{}, defaultData interface{}) {
+func configGet(name string, data interface{}) (err error) {
 
 	//mux.Lock()
 
@@ -25,10 +25,9 @@ func configGet(name string, data interface{}, defaultData interface{}) {
 
 	}
 	if err != nil {
-
-		panic(fmt.Sprintf("open %s config file failed:%s", name, err.Error()))
-
-		data = defaultData
+		if name != "resp" {
+			panic(fmt.Sprintf("open %s config file failed:%s", name, err.Error()))
+		}
 
 	} else {
 
@@ -36,16 +35,16 @@ func configGet(name string, data interface{}, defaultData interface{}) {
 
 		decoder := json.NewDecoder(file)
 
-		errDecode := decoder.Decode(data)
+		err = decoder.Decode(data)
 
 		//if name == "cache" {
 		//}
-		if errDecode != nil {
+		if err != nil {
 			//记录日志
-			fmt.Errorf(fmt.Sprintf("decode %s config error:%s", name, errDecode.Error()))
-			data = defaultData
+			fmt.Errorf(fmt.Sprintf("decode %s config error:%s", name, err.Error()))
 		}
 	}
+	return
 }
 
 func configPathExist(name string) bool {

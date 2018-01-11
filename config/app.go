@@ -23,10 +23,12 @@ func init() {
 
 	appConfig = &App{}
 
-	defaultAppConfig := appGetDefault()
+	err := configGet("app", appConfig)
 
-	configGet("app", appConfig, defaultAppConfig)
-
+	if err != nil {
+		defaultAppConfig := appGetDefault()
+		appConfig = defaultAppConfig
+	}
 }
 
 func appGetDefault() *App {

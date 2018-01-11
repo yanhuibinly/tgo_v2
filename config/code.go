@@ -15,9 +15,15 @@ func init() {
 
 	codeConfig.Public = make(map[int]string)
 
-	configGet("code_private", &codeConfig.Private, configCodeGetDefaultPrivate())
+	err := configGet("code_private", &codeConfig.Private)
 
-	configGet("code_public", &codeConfig.Public, configCodeGetDefaultPublic())
+	if err != nil {
+		codeConfig.Private = configCodeGetDefaultPrivate()
+	}
+	err = configGet("code_public", &codeConfig.Public)
+	if err != nil {
+		codeConfig.Public = configCodeGetDefaultPublic()
+	}
 }
 
 // CodeGetMsg 获取message

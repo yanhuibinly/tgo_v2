@@ -23,11 +23,9 @@ func init() {
 	if FeatureMongo() {
 		config := &Mongo{}
 
-		defaultMongoConfig := configMongoGetDefault()
+		err := configGet("mongo", config)
 
-		configGet("mongo", config, defaultMongoConfig)
-
-		if len(config.Mongo) == 0 {
+		if err != nil || len(config.Mongo) == 0 {
 			panic("mongo config is empty")
 		}
 

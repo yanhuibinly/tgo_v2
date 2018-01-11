@@ -16,9 +16,12 @@ var (
 func init() {
 	logConfig = &Log{}
 
-	defaultLogConfig := configLogGetDefault()
+	err := configGet("log", logConfig)
 
-	configGet("log", logConfig, defaultLogConfig)
+	if err != nil {
+		defaultLogConfig := configLogGetDefault()
+		logConfig = defaultLogConfig
+	}
 
 }
 

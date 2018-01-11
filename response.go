@@ -46,10 +46,12 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 		te.Msg = config.CodeGetMsg(te.Code)
 	}
 
+	configResp := config.RespGet()
+
 	rj = gin.H{
-		"code": te.Code,
-		"msg":  te.GetMsg(),
-		"data": model,
+		configResp.Code: te.Code,
+		configResp.Msg:  te.GetMsg(),
+		configResp.Data: model,
 	}
 
 	var callback string
