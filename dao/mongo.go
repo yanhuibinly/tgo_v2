@@ -231,7 +231,7 @@ func (p *Mongo) GetNextSequence(ctx context.Context) (string, error) {
 
 func (p *Mongo) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
 	if config.FeatureZipkin() {
-		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("mongo:%s", name))
+		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("mongo:%s:%s", name, p.CollectionName))
 	} else {
 		return nil, ctx
 	}
