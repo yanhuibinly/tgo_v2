@@ -9,6 +9,7 @@ import (
 	"net"
 )
 
+//Load grpc中load，需要放在middleware.Register之前
 func Load(hostPort string) {
 	if !config.FeatureZipkin() {
 		panic("zipkin feature is false")
