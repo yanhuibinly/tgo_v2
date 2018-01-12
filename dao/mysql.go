@@ -177,7 +177,7 @@ func (p *Mysql) GetReadOrm(ctx context.Context) (*gorm.DB, error) {
 
 func (p *Mysql) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
 	if config.FeatureZipkin() {
-		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("mysql:%s", name))
+		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("mysql:%s:%s", name, p.TableName))
 	} else {
 		return nil, ctx
 	}
@@ -256,7 +256,7 @@ func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data 
 }
 
 // Update
-func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets map[string]interface{}) (err error) {
+func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets map[string]interface{}) (rows int64, err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "update")
 	if span != nil {
@@ -267,17 +267,22 @@ func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets 
 		db, err = p.GetWriteOrm(ctx)
 
 		if err != nil {
-			return err
+			return
 		}
 
 		//defer db.Close()
 	}
 
-	errUpdate := db.Table(p.TableName).Where(condition).Updates(sets).Error
-	if errUpdate != nil {
-		err = p.processError(span, errUpdate, pconst.ERROR_MYSQL_UPDATE, "update data error")
+	dbUpdate := db.Table(p.TableName).Where(condition).Updates(sets)
+
+	err = dbUpdate.Error
+	if err != nil {
+		err = p.processError(span, err, pconst.ERROR_MYSQL_UPDATE, "update data error")
+	} else {
+		rows = dbUpdate.RowsAffected
 	}
-	return err
+
+	return
 }
 
 // Delete
