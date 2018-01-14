@@ -99,7 +99,7 @@ func ResponseGrpc(err error) (code int64, msg string) {
 
 	var codeint int
 	if err == nil {
-		codeint = 1001
+		codeint = pconst.ERROR_OK
 	} else {
 		var te *terror.TError
 		var ok bool
@@ -107,7 +107,7 @@ func ResponseGrpc(err error) (code int64, msg string) {
 			te = terror.NewFromError(err)
 		}
 		if te.Code == 0 {
-			te.Code = 1001
+			te.Code = pconst.ERROR_OK
 		}
 		codeint = te.Code
 	}

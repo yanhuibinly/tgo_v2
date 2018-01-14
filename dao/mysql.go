@@ -60,7 +60,7 @@ func init() {
 			dbWrite, err = initDb(conf.Conn.DbName, conf.Conn.Write, conf.Conn.Pool)
 
 			if err != nil {
-				panic("connect to mysql write server failed")
+				panic("connect to mysql write server failed" + err.Error())
 			}
 
 			dbMysqlWrite[conf.Db] = dbWrite
@@ -140,6 +140,7 @@ func (p *Mysql) GetWriteOrm(ctx context.Context) (*gorm.DB, error) {
 	}
 	if dbMysqlWrite == nil {
 		err := terror.New(pconst.ERROR_MYSQL_WRITE_EMPTY)
+		ext.Error.Set(span, true)
 		span.SetTag("err:getorm", err)
 		return nil, err
 	}
@@ -158,7 +159,9 @@ func (p *Mysql) GetReadOrm(ctx context.Context) (*gorm.DB, error) {
 	conf := dbMysqlReads[dbName]
 	if len(conf) == 0 {
 		err := terror.New(pconst.ERROR_MYSQL_READ_EMPTY)
+		ext.Error.Set(span, true)
 		span.SetTag("err:getorm", err)
+
 		return nil, err
 	}
 
@@ -247,7 +250,8 @@ func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data 
 
 	if errFind != nil {
 		if errFind.Error() == "record not found" {
-			err = p.processError(span, errFind, pconst.ERROR_MYSQL_NOT_FOUND, "select data is empty")
+			//err = p.processError(span, errFind, pconst.ERROR_MYSQL_NOT_FOUND, "select data is empty")
+			err = nil
 		} else {
 			err = p.processError(span, errFind, pconst.ERROR_MYSQL_SELECT, "select data error")
 		}
@@ -369,6 +373,35 @@ func (p *Mysql) Count(ctx context.Context, db *gorm.DB, condition string) (count
 		err = p.processError(span, errCount, pconst.ERROR_MYSQL_COUNT, "count data error")
 	}
 	return
+}
+
+//Invoke
+func (p *Mysql) Invoke(ctx context.Context, conn *gorm.DB, op string, write bool, fun func(*gorm.DB) error) (err error) {
+	span, ctx := p.ZipkinNewSpan(ctx, op)
+	if span != nil {
+		defer span.Finish()
+	}
+	if conn == nil {
+		if write {
+			conn, err = p.GetWriteOrm(ctx)
+		} else {
+			conn, err = p.GetReadOrm(ctx)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+	conn = conn.Table(p.TableName)
+	err = fun(conn)
+	if err != nil {
+		if err.Error() == "record not found" {
+			err = p.processError(span, err, pconst.ERROR_MYSQL_NOT_FOUND, "select data is empty")
+		} else {
+			err = p.processError(span, err, pconst.ERROR_MYSQL_INVOKE, "invoke error")
+		}
+	}
+	return err
 }
 
 func (p *Mysql) processError(span opentracing.Span, err error, code int, formatter string, a ...interface{}) error {
