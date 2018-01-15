@@ -13,21 +13,28 @@ import (
 	"google.golang.org/grpc/balancer/roundrobin"
 	//"google.golang.org/grpc/resolver"
 	"github.com/opentracing/opentracing-go/ext"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 	"sync"
 )
+
+var (
+	grpcConnMap map[string]*grpc.ClientConn
+	grpcConnMux sync.RWMutex
+)
+
+func init() {
+	if config.FeatureGrpc() {
+		grpcConnMap = make(map[string]*grpc.ClientConn)
+	}
+}
 
 type Grpc struct {
 	Service     string
 	Insecure    bool
 	DialOptions []grpc.DialOption
 }
-
-var (
-	grpcConnMap map[string]*grpc.ClientConn
-	grpcConnMux sync.RWMutex
-)
 
 func (p *Grpc) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
 	if config.FeatureZipkin() {
@@ -53,48 +60,60 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 		defer span.Finish()
 	}
 
-	grpcConnMux.Lock()
-	defer grpcConnMux.Unlock()
-	if grpcConnMap == nil {
-		grpcConnMap = make(map[string]*grpc.ClientConn)
-	}
-
 	conn, ok := grpcConnMap[p.Service]
 
+	if ok && conn != nil {
+		if conn.GetState() != connectivity.Ready {
+			ok = false
+		}
+	}
 	if !ok || conn == nil {
-		conf := config.GrpcGet(p.Service)
-		if conf == nil {
-			err = terror.New(pconst.ERROR_GRPC_CONFIG)
-			return
-		}
-		//b := balancer.Get("round_robin")
 
-		dialOptions := append(p.DialOptions, grpc.WithBalancerName(roundrobin.Name))
-		if conf.Insecure {
-			dialOptions = append(dialOptions, grpc.WithInsecure())
-		}
-		if config.FeatureZipkin() {
-			tracer := opentracing.GlobalTracer()
-			dialOptions = append(dialOptions, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
-		}
-		r, cleanup := manual.GenerateAndRegisterManualResolver()
-		defer cleanup()
+		grpcConnMux.Lock()
+		defer grpcConnMux.Unlock()
 
-		conn, err = grpc.Dial(r.Scheme()+":///test.server", dialOptions...)
+		conn, ok = grpcConnMap[p.Service]
 
-		if err != nil {
-			msg := fmt.Sprintf("dail failed,service:%s,error:%s", p.Service, err.Error())
-			err = terror.New(pconst.ERROR_GRPC_DAIL)
-			p.proccessError(span, err, msg)
-			return
+		if ok && conn != nil {
+			if conn.GetState() != connectivity.Ready {
+				ok = false
+			}
 		}
-		var addr []resolver.Address
-		for _, a := range conf.Conn {
-			addr = append(addr, resolver.Address{Addr: a})
-		}
-		r.NewAddress(addr)
+		if !ok || conn == nil {
+			conf := config.GrpcGet(p.Service)
+			if conf == nil {
+				err = terror.New(pconst.ERROR_GRPC_CONFIG)
+				return
+			}
+			//b := balancer.Get("round_robin")
 
-		grpcConnMap[p.Service] = conn
+			dialOptions := append(p.DialOptions, grpc.WithBalancerName(roundrobin.Name))
+			if conf.Insecure {
+				dialOptions = append(dialOptions, grpc.WithInsecure())
+			}
+			if config.FeatureZipkin() {
+				tracer := opentracing.GlobalTracer()
+				dialOptions = append(dialOptions, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(tracer)))
+			}
+			r, cleanup := manual.GenerateAndRegisterManualResolver()
+			defer cleanup()
+
+			conn, err = grpc.Dial(r.Scheme()+":///test.server", dialOptions...)
+
+			if err != nil {
+				msg := fmt.Sprintf("dail failed,service:%s,error:%s", p.Service, err.Error())
+				err = terror.New(pconst.ERROR_GRPC_DAIL)
+				p.proccessError(span, err, msg)
+				return
+			}
+			var addr []resolver.Address
+			for _, a := range conf.Conn {
+				addr = append(addr, resolver.Address{Addr: a})
+			}
+			r.NewAddress(addr)
+
+			grpcConnMap[p.Service] = conn
+		}
 	}
 
 	return
