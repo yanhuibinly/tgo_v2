@@ -16,7 +16,7 @@ func init() {
 	if FeatureZipkin() {
 		zipkinConfig = &ConfigZipkin{}
 
-		err := configGet("zipkin", zipkinConfig)
+		err := configGet("zipkin", zipkinConfig, false, nil)
 
 		if err != nil {
 			defaultZipkinConfig := configZipkinGetDefault()

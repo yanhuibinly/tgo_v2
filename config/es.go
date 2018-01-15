@@ -18,7 +18,7 @@ func init() {
 	if FeatureEs() {
 		config := &Es{}
 
-		err := configGet("es", config)
+		err := configGet("es", config, false, nil)
 
 		if err != nil || len(config.Es) == 0 {
 			panic("es config is empty")

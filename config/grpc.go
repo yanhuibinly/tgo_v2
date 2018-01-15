@@ -19,7 +19,7 @@ func init() {
 	if FeatureGrpc() {
 		config := &Grpc{}
 
-		err := configGet("grpc", config)
+		err := configGet("grpc", config, false, nil)
 
 		if err != nil || len(config.Grpc) == 0 {
 			panic("grpc config is empty")

@@ -23,7 +23,7 @@ func init() {
 	if FeatureMongo() {
 		config := &Mongo{}
 
-		err := configGet("mongo", config)
+		err := configGet("mongo", config, false, nil)
 
 		if err != nil || len(config.Mongo) == 0 {
 			panic("mongo config is empty")

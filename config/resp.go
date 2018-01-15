@@ -13,7 +13,7 @@ var (
 func init() {
 	respConfig = &Resp{}
 
-	err := configGet("resp", respConfig)
+	err := configGet("resp", respConfig, false, nil)
 
 	if err != nil {
 		defaultConfig := configRespGetDefault()

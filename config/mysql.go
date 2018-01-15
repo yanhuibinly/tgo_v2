@@ -35,7 +35,7 @@ func init() {
 	if FeatureMysql() {
 		config := &Mysql{}
 
-		err := configGet("mysql", config)
+		err := configGet("mysql", config, false, nil)
 
 		if err != nil || len(config.Mysql) == 0 {
 			panic("mysql config is empty")

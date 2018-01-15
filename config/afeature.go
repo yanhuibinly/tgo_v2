@@ -17,7 +17,7 @@ var (
 func init() {
 	featureConfig = &Feature{}
 
-	err := configGet("feature", featureConfig)
+	err := configGet("feature", featureConfig, false, nil)
 
 	if err != nil {
 		defaultFeatureConfig := configFeatureGetDefault()
