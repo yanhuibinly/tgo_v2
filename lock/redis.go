@@ -58,6 +58,9 @@ func RedisGet(ctx context.Context, key string) (mutex *redsync.Mutex) {
 //RedisLock lock
 func RedisLock(ctx context.Context, mutex *redsync.Mutex) (err error) {
 	span, ctx := redisZipkinNewSpan(ctx, "lock")
+	if span != nil {
+		defer span.Finish()
+	}
 	err = mutex.Lock()
 
 	if err != nil {
@@ -68,7 +71,10 @@ func RedisLock(ctx context.Context, mutex *redsync.Mutex) (err error) {
 
 //RedisUnlock unlock
 func RedisUnlock(ctx context.Context, mutex *redsync.Mutex) bool {
-	_, ctx = redisZipkinNewSpan(ctx, "unlock")
+	span, ctx := redisZipkinNewSpan(ctx, "unlock")
+	if span != nil {
+		defer span.Finish()
+	}
 	return mutex.Unlock()
 }
 

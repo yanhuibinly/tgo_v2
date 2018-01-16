@@ -152,7 +152,7 @@ func (p *Grpc) Invoke(ctx context.Context, conn *grpc.ClientConn, funcName strin
 	err = funcInvoke(ctx)
 
 	if err != nil {
-		msg := fmt.Sprintf("grpc error :%s", err.Error())
+		msg := fmt.Sprintf("grpc error,conn:%s,funcName:%s,error :%s", p.Service, funcName, err.Error())
 		err = terror.New(pconst.ERROR_GRPC_INVOKE)
 		p.proccessError(span, err, msg)
 	}
