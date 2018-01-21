@@ -12,7 +12,6 @@ import (
 	"github.com/tonyjt/tgo_v2/terror"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -22,12 +21,12 @@ type IModelMongo interface {
 	GetCreatedTime() time.Time
 	InitTime(t time.Time)
 	SetUpdatedTime(t time.Time)
-	SetId(id string)
-	GetId() string
+	SetId(id int64)
+	GetId() int64
 }
 
 type ModelMongo struct {
-	Id         string    `bson:"_id" json:"id"`
+	Id         int64     `bson:"_id" json:"id"`
 	Created_at time.Time `bson:"created_at,omitempty" json:"created_at"`
 	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at"`
 }
@@ -44,11 +43,11 @@ func (m *ModelMongo) SetUpdatedTime(t time.Time) {
 	m.Updated_at = t
 }
 
-func (m *ModelMongo) SetId(id string) {
+func (m *ModelMongo) SetId(id int64) {
 	m.Id = id
 }
 
-func (m *ModelMongo) GetId() string {
+func (m *ModelMongo) GetId() int64 {
 	return m.Id
 }
 
@@ -67,8 +66,8 @@ type Mongo struct {
 
 // MongoCounter 计数器
 type MongoCounter struct {
-	Id  string `bson:"_id,omitempty"`
-	Seq int64  `bson:"seq,omitempty"`
+	Id  int64 `bson:"_id,omitempty"`
+	Seq int64 `bson:"seq,omitempty"`
 }
 
 // NewMongo
@@ -139,10 +138,11 @@ func (p *Mongo) SetMode(session *mgo.Session, dft string) {
 }
 
 // GetId 获取id
-func (p *Mongo) GetId(ctx context.Context) (string, error) {
+func (p *Mongo) GetId(ctx context.Context) (int64, error) {
 	return p.GetNextSequence(ctx)
 }
 
+//getDbName get db name
 func (p *Mongo) getDbName() string {
 	if p.DbName != "" {
 		return p.DbName
@@ -156,7 +156,7 @@ func (p *Mongo) getDbName() string {
 	return ""
 }
 
-// GetSession 获取session
+//GetSession 获取session
 func (p *Mongo) GetSession(span opentracing.Span) (*mgo.Session, string, error) {
 
 	dbName := p.getDbName()
@@ -177,7 +177,9 @@ func (p *Mongo) GetSession(span opentracing.Span) (*mgo.Session, string, error) 
 	}
 	return nil, dbName, err
 }
-func (p *Mongo) GetNextSequence(ctx context.Context) (string, error) {
+
+//
+func (p *Mongo) GetNextSequence(ctx context.Context) (seq int64, err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "getid")
 
@@ -187,7 +189,7 @@ func (p *Mongo) GetNextSequence(ctx context.Context) (string, error) {
 	session, dbName, err := p.GetSession(span)
 
 	if err != nil {
-		return "0", err
+		return
 	}
 	defer session.Close()
 
@@ -208,25 +210,25 @@ func (p *Mongo) GetNextSequence(ctx context.Context) (string, error) {
 
 	if errApply != nil {
 		errApply = p.processError(span, errApply, pconst.ERROR_MONGO_FIND, "mongo findAndModify counter %s failed:%s", p.CollectionName, errApply.Error())
-		terr := terror.NewFromError(errApply)
-		terr.Code = pconst.ERROR_MONGO_SEQUENCE
-		return "0", terr
+
+		err = terror.New(pconst.ERROR_MONGO_SEQUENCE)
+		return
 	}
 
 	setInt, resultNext := result["seq"].(int)
 
-	var seq int64
 	if !resultNext {
 		seq, resultNext = result["seq"].(int64)
 
 		if !resultNext {
 			log.Errorf("mongo findAndModify get counter %s failed", p.CollectionName)
 		}
+		err = terror.New(pconst.ERROR_MONGO_SEQUENCE)
 	} else {
 		seq = int64(setInt)
 	}
 
-	return strconv.FormatInt(seq, 10), nil
+	return
 }
 
 func (p *Mongo) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {

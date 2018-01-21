@@ -29,7 +29,7 @@ var (
 )
 
 func init() {
-	if FeatureHttp() {
+	if FeatureHTTP() {
 		conf := &Http{}
 
 		err := configGet("http", conf, false, nil)

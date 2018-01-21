@@ -12,14 +12,19 @@ import (
 	"strings"
 )
 
-func ResponseReturnJsonNoP(c *gin.Context, err error, model interface{}) {
+//ResponseReturnJSONNoP return json response without jsonp
+func ResponseReturnJSONNoP(c *gin.Context, err error, model interface{}) {
 
-	ResponseJsonWithCallbackFlag(c, err, model, false)
+	ResponseJSONWithCallbackFlag(c, err, model, false)
 }
+
+//ResponseJson json response
 func ResponseJson(c *gin.Context, err error, model interface{}) {
-	ResponseJsonWithCallbackFlag(c, err, model, true)
+	ResponseJSONWithCallbackFlag(c, err, model, true)
 }
-func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, callbackFlag bool) {
+
+//ResponseJSONWithCallbackFlag  json response base func
+func ResponseJSONWithCallbackFlag(c *gin.Context, err error, model interface{}, callbackFlag bool) {
 	var rj interface{}
 
 	var te *terror.TError
@@ -83,6 +88,7 @@ func ResponseJsonWithCallbackFlag(c *gin.Context, err error, model interface{}, 
 	}
 }
 
+//responseJSONMarshal response json marshal
 func responseJSONMarshal(t interface{}) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
@@ -91,10 +97,12 @@ func responseJSONMarshal(t interface{}) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
+//ResponseRedirect redirect
 func ResponseRedirect(c *gin.Context, url string) {
 	c.Redirect(http.StatusMovedPermanently, url)
 }
 
+//ResponseGrpc response grpc
 func ResponseGrpc(err error) (code int64, msg string) {
 
 	var codeint int
