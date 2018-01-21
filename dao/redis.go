@@ -23,6 +23,7 @@ var (
 	persist   *pools.ResourcePool // 持久化Pool
 )
 
+//ResourceConn ResourceConn
 type ResourceConn struct {
 	redis.Conn
 	serverIndex int
@@ -72,15 +73,18 @@ func dial(fromIndex int, config config.RedisBase) (conn redis.Conn, index int, e
 	}
 }
 
+//Close close conn
 func (r ResourceConn) Close() {
 	r.Conn.Close()
 }
 
+//Redis redis struct
 type Redis struct {
 	Key        string
 	Persistent bool
 }
 
+//ZipkinNewSpan new zipkin span for redis
 func (p *Redis) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
 
 	if config.FeatureZipkin() {
@@ -90,6 +94,7 @@ func (p *Redis) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Spa
 	}
 }
 
+//GetConn get redis conn
 func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "conn")
@@ -169,6 +174,7 @@ func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 	return
 }
 
+//PutConn put back conn to pool
 func (p *Redis) PutConn(ctx context.Context, resource pools.Resource) {
 	var pool *pools.ResourcePool
 
@@ -180,6 +186,7 @@ func (p *Redis) PutConn(ctx context.Context, resource pools.Resource) {
 
 	pool.Put(resource)
 }
+
 func (p *Redis) getKey(key string) string {
 
 	conf := config.RedisGetBase(p.Persistent)
@@ -192,6 +199,7 @@ func (p *Redis) getKey(key string) string {
 	return fmt.Sprintf("%s:%s:%s", prefixRedis, p.Key, key)
 }
 
+//Do run redis command
 func (p *Redis) Do(ctx context.Context, cmd string, args ...interface{}) (reply interface{}, err error) {
 	span, ctx := p.ZipkinNewSpan(ctx, cmd)
 	if span != nil {
@@ -573,6 +581,7 @@ func (p *Redis) doDel(ctx context.Context, cmd string, data ...interface{}) (err
 	return
 }
 
+//ZipkinTag
 func (p *Redis) ZipkinTag(span opentracing.Span, tag string, err error) {
 	if span != nil {
 		ext.Error.Set(span, true)
@@ -979,6 +988,7 @@ func (p *Redis) LPop(ctx context.Context, value interface{}) (err error) {
 
 //pipeline start
 
+//PipelineHGet
 func (p *Redis) PipelineHGet(ctx context.Context, key []string, fields []interface{}, data []interface{}) (err error) {
 	var args [][]interface{}
 

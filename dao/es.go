@@ -12,12 +12,14 @@ import (
 	"github.com/tonyjt/tgo_v2/terror"
 )
 
+//Es es struct
 type Es struct {
 	Service string
 	Index   string
 	Type    string
 }
 
+//ZipkinNewSpan new zipkin span for es
 func (p *Es) ZipkinNewSpan(ctx context.Context, name string) (opentracing.Span, context.Context) {
 	if config.FeatureZipkin() {
 		return opentracing.StartSpanFromContext(ctx, fmt.Sprintf("es:%s:%s", p.Service, name))

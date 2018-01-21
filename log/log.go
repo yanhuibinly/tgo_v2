@@ -87,17 +87,21 @@ func Error(msg interface{}) {
 	Log(LevelError, msg)
 }
 
+//LogStruct struct for default log
 type LogStruct struct {
 }
 
+//NewLog New LogStruct
 func NewLog() *LogStruct {
 	return &LogStruct{}
 }
 
+//Error error
 func (p *LogStruct) Error(format string, a ...interface{}) {
 	Errorf(format, a...)
 }
 
+//Info info
 func (p *LogStruct) Info(format string, a ...interface{}) {
 	Logf(LevelInfo, format, a...)
 }
