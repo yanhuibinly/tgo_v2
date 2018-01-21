@@ -27,7 +27,7 @@ type IModelMongo interface {
 }
 
 type ModelMongo struct {
-	Id         string    `bson:"_id",json:"id"`
+	Id         string    `bson:"_id" json:"id"`
 	Created_at time.Time `bson:"created_at,omitempty" json:"created_at"`
 	Updated_at time.Time `bson:"updated_at,omitempty" json:"updated_at"`
 }

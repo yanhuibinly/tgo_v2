@@ -94,21 +94,21 @@ func AppFailoverGet(key string) (string, error) {
 	failoverConfig := AppGet(key)
 
 	if failoverConfig == nil {
-		fmt.Errorf("config % is null", key)
+		fmt.Printf("config %s is null", key)
 		err = terror.New(pconst.ERROR_CONFIG_NULL)
 	} else {
 
 		failoverUrl := failoverConfig.(string)
 
 		if strings.Trim(failoverUrl, " ") == "" {
-			fmt.Errorf("config % is null", key)
+			fmt.Printf("config %s is null", key)
 			err = terror.New(pconst.ERROR_CONFIG_NULL)
 		} else {
 			failoverArray := strings.Split(failoverUrl, ",")
 
 			randomMax := len(failoverArray)
 			if randomMax == 0 {
-				fmt.Errorf("config % is empty", key)
+				fmt.Printf("config %s is empty", key)
 				err = terror.New(pconst.ERROR_CONFIG_NULL)
 			} else {
 				var randomValue int
@@ -160,7 +160,7 @@ func AppGetSlice(key string, data interface{}) error {
 
 	if strings.Trim(dataStrConfig, " ") == "" {
 
-		fmt.Errorf("config %s is empty", key)
+		fmt.Printf("config %s is empty", key)
 		return terror.New(pconst.ERROR_CONFIG_NULL)
 	}
 
@@ -171,7 +171,7 @@ func AppGetSlice(key string, data interface{}) error {
 	//不是指针Slice
 	if dataType.Kind() != reflect.Ptr || dataType.Elem().Kind() != reflect.Slice {
 
-		fmt.Errorf("config %s is not pt or slice", key)
+		fmt.Printf("config %s is not pt or slice", key)
 		return terror.New(pconst.ERRPR_CONFIG_SLICE)
 	}
 
@@ -210,11 +210,11 @@ func AppGetSlice(key string, data interface{}) error {
 					var de
 					errConv = json.Unmarshal([]byte(dataStr), de.Interface())*/
 		default:
-			fmt.Errorf("type not support")
+			fmt.Printf("type not support")
 			return terror.New(pconst.ERRPR_CONFIG_SLICE_TYPE)
 		}
 		if errConv != nil {
-			fmt.Errorf("convert config failed error:%s", errConv.Error())
+			fmt.Printf("convert config failed error:%s", errConv.Error())
 
 			return terror.New(pconst.ERRPR_CONFIG_SLICE_CONVERT)
 		}

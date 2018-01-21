@@ -6,8 +6,10 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+//Level level
 type Level uint32
 
+//const level
 const (
 	LevelPanic Level = iota
 	LevelFatal
@@ -37,6 +39,8 @@ func init() {
 
 	logger.SetLevel(logrus.Level(conf.Level))
 }
+
+//Log log
 func Log(level Level, msg ...interface{}) {
 	switch level {
 	case LevelDebug:
@@ -54,6 +58,7 @@ func Log(level Level, msg ...interface{}) {
 	}
 }
 
+//Logf logf
 func Logf(level Level, format string, msg ...interface{}) {
 
 	switch level {
@@ -72,10 +77,12 @@ func Logf(level Level, format string, msg ...interface{}) {
 	}
 }
 
+//Errorf errorf
 func Errorf(format string, msg ...interface{}) {
 	Logf(LevelError, format, msg...)
 }
 
+//Error error
 func Error(msg interface{}) {
 	Log(LevelError, msg)
 }

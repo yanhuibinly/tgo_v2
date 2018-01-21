@@ -47,7 +47,7 @@ func configGet(name string, data interface{}, sync bool, mutex *sync.RWMutex) (e
 		//}
 		if err != nil {
 			//记录日志
-			fmt.Errorf(fmt.Sprintf("decode %s config error:%s", name, err.Error()))
+			fmt.Printf(fmt.Sprintf("decode %s config error:%s", name, err.Error()))
 		}
 		if sync {
 			go configSync(absPath, data, mutex)
@@ -62,7 +62,7 @@ func configSync(path string, data interface{}, mutex *sync.RWMutex) {
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		fmt.Errorf(fmt.Sprintf("file watch failed:%s", err.Error()))
+		fmt.Printf(fmt.Sprintf("file watch failed:%s", err.Error()))
 	}
 	defer watcher.Close()
 
@@ -80,20 +80,20 @@ func configSync(path string, data interface{}, mutex *sync.RWMutex) {
 			file, err = os.Open(path)
 
 			if err != nil {
-				fmt.Errorf("sync open file err: %s\n", err.Error())
+				fmt.Printf("sync open file err: %s\n", err.Error())
 			} else {
 				mutex.Lock()
 				err = configParseFile(file, data)
 				mutex.Unlock()
 				if err != nil {
-					fmt.Errorf("sync config parse file err: %s\n", err.Error())
+					fmt.Printf("sync config parse file err: %s\n", err.Error())
 				}
 
 				file.Close()
 			}
 
 		case err := <-watcher.Errors:
-			fmt.Errorf("file watcher error: %s \n", err.Error())
+			fmt.Printf("file watcher error: %s \n", err.Error())
 		}
 	}
 }
@@ -106,7 +106,7 @@ func configParseFile(file *os.File, data interface{}) (err error) {
 
 	if err != nil {
 		//记录日志
-		fmt.Errorf("decode file error:%s \n", err.Error())
+		fmt.Printf("decode file error:%s \n", err.Error())
 	}
 	return
 }
