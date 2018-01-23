@@ -50,7 +50,9 @@ func configGet(name string, data interface{}, sync bool, mutex *sync.RWMutex) (e
 			fmt.Printf(fmt.Sprintf("decode %s config error:%s", name, err.Error()))
 		}
 		if sync {
-			go configSync(absPath, data, mutex)
+			if !AppEnvIsDev() {
+				go configSync(absPath, data, mutex)
+			}
 		}
 
 	}
