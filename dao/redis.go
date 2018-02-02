@@ -113,9 +113,8 @@ func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 	if pool == nil {
 		log.Logf(log.LevelFatal, "redis pool is null")
 		err = terror.New(pconst.ERROR_REDIS_POOL_NULL)
-		if span != nil {
-			span.SetTag("err:pool", err)
-		}
+		p.ZipkinTag(span, "err:pool", err)
+
 		return
 	}
 
@@ -124,18 +123,14 @@ func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 	if err != nil {
 		log.Errorf("redis get connection err:%s", err.Error())
 		err = terror.New(pconst.ERROR_REDIS_POOL_GET)
-		if span != nil {
-			span.SetTag("err:pool", err)
-		}
+		p.ZipkinTag(span, "err:pool", err)
 		return
 	}
 
 	if r == nil {
 		log.Error("redis pool resource is null")
 		err = terror.New(pconst.ERROR_REDIS_POOL_EMPTY)
-		if span != nil {
-			span.SetTag("err:pool", err)
-		}
+		p.ZipkinTag(span, "err:pool", err)
 		return
 	}
 
@@ -160,9 +155,8 @@ func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 			pool.Put(r)
 			log.Errorf("redis redail connection err:%s", err.Error())
 			err = terror.New(pconst.ERROR_REDIS_POOL_REDIAL)
-			if span != nil {
-				span.SetTag("err:dial", err)
-			}
+
+			p.ZipkinTag(span, "err:dial", err)
 			return
 		} else {
 			conn = ResourceConn{Conn: c, serverIndex: serverIndex}
