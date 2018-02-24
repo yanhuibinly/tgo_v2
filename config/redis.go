@@ -20,6 +20,7 @@ type RedisBase struct {
 	PoolMaxActive   int
 	PoolIdleTimeout int
 	PoolMinActive   int
+	Password string
 }
 
 func init() {
@@ -35,16 +36,16 @@ func init() {
 }
 
 func configRedisGetDefault() *Redis {
-	return &Redis{Unpersist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2},
-		Persist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2}}
+	return &Redis{Unpersist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2,""},
+		Persist: RedisBase{[]string{"ip:port"}, "prefix", 604800, 1000, 1000, 1000, 10, 100, 180000, 2,""}}
 }
 
-func RedisGet() *Redis {
-	if redisConfig == nil {
-		panic("redis config is nill")
+	func RedisGet() *Redis {
+		if redisConfig == nil {
+			panic("redis config is nill")
+		}
+		return redisConfig
 	}
-	return redisConfig
-}
 
 func RedisGetBase(persistent bool) RedisBase {
 

@@ -156,7 +156,7 @@ func TestMysql_Trans(t *testing.T) {
 
 	set["value"] = 25
 
-	err = m.Update(ctx, db, condition, set)
+	_,err = m.Update(ctx, db, condition, set)
 
 	if err != nil {
 		t.Error(err)
@@ -174,7 +174,7 @@ func TestMysql_Update(t *testing.T) {
 
 	set["value"] = 20
 
-	err := m.Update(context.Background(), nil, condition, set)
+	_,err := m.Update(context.Background(), nil, condition, set)
 
 	if err != nil {
 		t.Error(err)

@@ -9,6 +9,9 @@ import (
 	"sync"
 )
 
+func Get(name string,data interface{}, sync bool, mutex *sync.RWMutex) (err error) {
+	return configGet(name,data,sync,mutex)
+}
 func configGet(name string, data interface{}, sync bool, mutex *sync.RWMutex) (err error) {
 
 	//mux.Lock()

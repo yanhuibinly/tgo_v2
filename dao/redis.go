@@ -21,6 +21,7 @@ import (
 var (
 	unpersist *pools.ResourcePool
 	persist   *pools.ResourcePool // 持久化Pool
+	addresser RedisAddresser //获取地址
 )
 
 //ResourceConn ResourceConn
@@ -33,31 +34,72 @@ func init() {
 	if config.FeatureRedis() {
 		//非持久化pool
 		conf := config.RedisGet()
-		unpersist = initRedisPool(conf.Unpersist)
-		persist = initRedisPool(conf.Persist)
+		unpersist = initRedisPool(false,conf.Unpersist)
+		persist = initRedisPool(true,conf.Persist)
 	}
 }
 
-func initRedisPool(conf config.RedisBase) *pools.ResourcePool {
+type RedisAddresser interface{
+	RedisAddressUnPersistGet()(address []string,err error)
+	RedisAddressPersistGet()(address []string,err error)
+}
+
+func RedisSetAddresser(add RedisAddresser){
+	addresser = add
+}
+func redisGetAddress(isPersist bool,conf config.RedisBase)(address []string,err error){
+	if addresser != nil{
+		if isPersist{
+			address,err = addresser.RedisAddressPersistGet()
+		}else{
+			address,err = addresser.RedisAddressUnPersistGet()
+		}
+
+		if err!=nil{
+			log.Errorf("interface get address failed, error :%s",err.Error())
+		}else if len(address) == 0{
+			log.Error("interface get address is empty")
+		}else{
+			return
+		}
+	}
+	address = conf.Address
+	err = nil
+	return
+}
+
+
+func initRedisPool(isPersist bool,conf config.RedisBase) *pools.ResourcePool {
 	return pools.NewResourcePool(func() (pools.Resource, error) {
-		c, serverIndex, err := dial(0, conf)
+		c, serverIndex, err := dial(0,isPersist, conf)
 		return ResourceConn{Conn: c, serverIndex: serverIndex}, err
 	}, conf.PoolMinActive, conf.PoolMaxActive, time.Duration(conf.PoolIdleTimeout)*time.Millisecond)
-
 }
-func dial(fromIndex int, config config.RedisBase) (conn redis.Conn, index int, err error) {
 
-	if len(config.Address) > 0 {
-		if fromIndex+1 > len(config.Address) {
+
+func dial(fromIndex int,isPersist bool, config config.RedisBase) (conn redis.Conn, index int, err error) {
+
+	address,err := redisGetAddress(isPersist,config)
+	if err!=nil{
+		err = terror.New(pconst.ERROR_REDIS_INIT_ADDRESS)
+		return
+	}
+	if len(address) > 0 {
+		if fromIndex+1 > len(address) {
 			fromIndex = 0
 		}
 
-		for i, addr := range config.Address {
+		for i, addr := range address {
 			if i >= fromIndex {
-				conn, err = redis.Dial("tcp", addr,
-					redis.DialConnectTimeout(time.Duration(config.ConnectTimeout)*time.Millisecond),
+				var opt []redis.DialOption
+				opt = append(opt,redis.DialConnectTimeout(time.Duration(config.ConnectTimeout)*time.Millisecond),
 					redis.DialReadTimeout(time.Duration(config.ReadTimeout)*time.Millisecond),
 					redis.DialWriteTimeout(time.Duration(config.WriteTimeout)*time.Millisecond))
+
+				if config.Password !=""{
+					opt = append(opt,redis.DialPassword(config.Password))
+				}
+				conn, err = redis.Dial("tcp", addr,opt...)
 				if err != nil {
 					log.Errorf("dail redis pool error: %s", err.Error())
 				} else {
@@ -150,7 +192,7 @@ func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 		} else {
 			conf = config.RedisGet().Unpersist
 		}
-		c, serverIndex, err = dial(rc.serverIndex+1, conf)
+		c, serverIndex, err = dial(rc.serverIndex+1,p.Persistent, conf)
 		if err != nil {
 			pool.Put(r)
 			log.Errorf("redis redail connection err:%s", err.Error())
