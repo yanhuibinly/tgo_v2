@@ -21,7 +21,7 @@ import (
 var (
 	unpersist *pools.ResourcePool
 	persist   *pools.ResourcePool // 持久化Pool
-	addresser RedisAddresser //获取地址
+	addresser RedisAddresser      //获取地址
 )
 
 //ResourceConn ResourceConn
@@ -34,32 +34,32 @@ func init() {
 	if config.FeatureRedis() {
 		//非持久化pool
 		conf := config.RedisGet()
-		unpersist = initRedisPool(false,conf.Unpersist)
-		persist = initRedisPool(true,conf.Persist)
+		unpersist = initRedisPool(false, conf.Unpersist)
+		persist = initRedisPool(true, conf.Persist)
 	}
 }
 
-type RedisAddresser interface{
-	RedisAddressUnPersistGet()(address []string,err error)
-	RedisAddressPersistGet()(address []string,err error)
+type RedisAddresser interface {
+	RedisAddressUnPersistGet() (address []string, err error)
+	RedisAddressPersistGet() (address []string, err error)
 }
 
-func RedisSetAddresser(add RedisAddresser){
+func RedisSetAddresser(add RedisAddresser) {
 	addresser = add
 }
-func redisGetAddress(isPersist bool,conf config.RedisBase)(address []string,err error){
-	if addresser != nil{
-		if isPersist{
-			address,err = addresser.RedisAddressPersistGet()
-		}else{
-			address,err = addresser.RedisAddressUnPersistGet()
+func redisGetAddress(isPersist bool, conf config.RedisBase) (address []string, err error) {
+	if addresser != nil {
+		if isPersist {
+			address, err = addresser.RedisAddressPersistGet()
+		} else {
+			address, err = addresser.RedisAddressUnPersistGet()
 		}
 
-		if err!=nil{
-			log.Errorf("interface get address failed, error :%s",err.Error())
-		}else if len(address) == 0{
+		if err != nil {
+			log.Errorf("interface get address failed, error :%s", err.Error())
+		} else if len(address) == 0 {
 			log.Error("interface get address is empty")
-		}else{
+		} else {
 			return
 		}
 	}
@@ -68,19 +68,17 @@ func redisGetAddress(isPersist bool,conf config.RedisBase)(address []string,err 
 	return
 }
 
-
-func initRedisPool(isPersist bool,conf config.RedisBase) *pools.ResourcePool {
+func initRedisPool(isPersist bool, conf config.RedisBase) *pools.ResourcePool {
 	return pools.NewResourcePool(func() (pools.Resource, error) {
-		c, serverIndex, err := dial(0,isPersist, conf)
+		c, serverIndex, err := dial(0, isPersist, conf)
 		return ResourceConn{Conn: c, serverIndex: serverIndex}, err
 	}, conf.PoolMinActive, conf.PoolMaxActive, time.Duration(conf.PoolIdleTimeout)*time.Millisecond)
 }
 
+func dial(fromIndex int, isPersist bool, config config.RedisBase) (conn redis.Conn, index int, err error) {
 
-func dial(fromIndex int,isPersist bool, config config.RedisBase) (conn redis.Conn, index int, err error) {
-
-	address,err := redisGetAddress(isPersist,config)
-	if err!=nil{
+	address, err := redisGetAddress(isPersist, config)
+	if err != nil {
 		err = terror.New(pconst.ERROR_REDIS_INIT_ADDRESS)
 		return
 	}
@@ -92,14 +90,14 @@ func dial(fromIndex int,isPersist bool, config config.RedisBase) (conn redis.Con
 		for i, addr := range address {
 			if i >= fromIndex {
 				var opt []redis.DialOption
-				opt = append(opt,redis.DialConnectTimeout(time.Duration(config.ConnectTimeout)*time.Millisecond),
+				opt = append(opt, redis.DialConnectTimeout(time.Duration(config.ConnectTimeout)*time.Millisecond),
 					redis.DialReadTimeout(time.Duration(config.ReadTimeout)*time.Millisecond),
 					redis.DialWriteTimeout(time.Duration(config.WriteTimeout)*time.Millisecond))
 
-				if config.Password !=""{
-					opt = append(opt,redis.DialPassword(config.Password))
+				if config.Password != "" {
+					opt = append(opt, redis.DialPassword(config.Password))
 				}
-				conn, err = redis.Dial("tcp", addr,opt...)
+				conn, err = redis.Dial("tcp", addr, opt...)
 				if err != nil {
 					log.Errorf("dail redis pool error: %s", err.Error())
 				} else {
@@ -192,7 +190,7 @@ func (p *Redis) GetConn(ctx context.Context) (conn pools.Resource, err error) {
 		} else {
 			conf = config.RedisGet().Unpersist
 		}
-		c, serverIndex, err = dial(rc.serverIndex+1,p.Persistent, conf)
+		c, serverIndex, err = dial(rc.serverIndex+1, p.Persistent, conf)
 		if err != nil {
 			pool.Put(r)
 			log.Errorf("redis redail connection err:%s", err.Error())
@@ -688,8 +686,8 @@ func (p *Redis) Expire(ctx context.Context, key string, expire int) (err error) 
 	key = p.getKey(key)
 
 	redisClient := redisResource.(ResourceConn)
-	_, errDo := redisClient.Do("EXPIRE", key, expire)
-	if errDo != nil {
+	_, err = redisClient.Do("EXPIRE", key, expire)
+	if err != nil {
 		log.Errorf("run redis EXPIRE command failed: error:%s,key:%s,time:%d", err.Error(), key, expire)
 
 		err = terror.New(pconst.ERROR_REDIS_EXPIRE_DO)
