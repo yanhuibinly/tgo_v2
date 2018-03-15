@@ -213,8 +213,13 @@ func (p *Mysql) Insert(ctx context.Context, db *gorm.DB, model IModelMysql) (err
 	return err
 }
 
+func (p *Mysql) Select(ctx context.Context, db *gorm.DB, query interface{}, queryArgs []interface{}, data interface{}) (err error) {
+	err = p.SelectPlus(ctx, db, query, queryArgs, data, 0, 0, nil, "")
+	return
+}
+
 // Select
-func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data interface{}, skip int, limit int, fields []string, sort string) (err error) {
+func (p *Mysql) SelectPlus(ctx context.Context, db *gorm.DB, query interface{}, queryArgs []interface{}, data interface{}, skip int, limit int, fields []string, sort string) (err error) {
 	span, ctx := p.ZipkinNewSpan(ctx, "select")
 	if span != nil {
 		defer span.Finish()
@@ -230,7 +235,7 @@ func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data 
 		//defer db.Close()
 	}
 
-	db = db.Table(p.TableName).Where(condition)
+	db = db.Table(p.TableName).Where(query, queryArgs...)
 
 	var errFind error
 	if len(fields) > 0 {
@@ -260,7 +265,7 @@ func (p *Mysql) Select(ctx context.Context, db *gorm.DB, condition string, data 
 }
 
 // Update
-func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets map[string]interface{}) (rows int64, err error) {
+func (p *Mysql) Update(ctx context.Context, db *gorm.DB, query interface{}, queryArgs []interface{}, sets map[string]interface{}) (rows int64, err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "update")
 	if span != nil {
@@ -277,7 +282,7 @@ func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets 
 		//defer db.Close()
 	}
 
-	dbUpdate := db.Table(p.TableName).Where(condition).Updates(sets)
+	dbUpdate := db.Table(p.TableName).Where(query, queryArgs...).Updates(sets)
 
 	err = dbUpdate.Error
 	if err != nil {
@@ -290,7 +295,7 @@ func (p *Mysql) Update(ctx context.Context, db *gorm.DB, condition string, sets 
 }
 
 // Delete
-func (p *Mysql) Delete(ctx context.Context, db *gorm.DB, condition string) (err error) {
+func (p *Mysql) Delete(ctx context.Context, db *gorm.DB, query interface{}, queryArgs []interface{}) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "delete")
 	if span != nil {
@@ -307,7 +312,7 @@ func (p *Mysql) Delete(ctx context.Context, db *gorm.DB, condition string) (err 
 		//defer db.Close()
 	}
 
-	errDel := db.Table(p.TableName).Where(condition).Delete(nil).Error
+	errDel := db.Table(p.TableName).Where(query, queryArgs...).Delete(nil).Error
 	if errDel != nil {
 		err = p.processError(span, errDel, pconst.ERROR_MYSQL_DELETE, "delete data error")
 
@@ -316,7 +321,7 @@ func (p *Mysql) Delete(ctx context.Context, db *gorm.DB, condition string) (err 
 }
 
 // First
-func (p *Mysql) First(ctx context.Context, db *gorm.DB, condition string, data IModelMysql, sort string) (err error) {
+func (p *Mysql) First(ctx context.Context, db *gorm.DB, query interface{}, queryArgs []interface{}, data IModelMysql, sort string) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "first")
 	if span != nil {
@@ -333,7 +338,7 @@ func (p *Mysql) First(ctx context.Context, db *gorm.DB, condition string, data I
 		//defer db.Close()
 	}
 
-	db = db.Table(p.TableName).Where(condition)
+	db = db.Table(p.TableName).Where(query, queryArgs...)
 
 	var errFind error
 
@@ -350,7 +355,7 @@ func (p *Mysql) First(ctx context.Context, db *gorm.DB, condition string, data I
 }
 
 // Count
-func (p *Mysql) Count(ctx context.Context, db *gorm.DB, condition string) (count int, err error) {
+func (p *Mysql) Count(ctx context.Context, db *gorm.DB, query interface{}, queryArgs []interface{}) (count int, err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "count")
 	if span != nil {
@@ -367,7 +372,7 @@ func (p *Mysql) Count(ctx context.Context, db *gorm.DB, condition string) (count
 		//defer db.Close()
 	}
 
-	errCount := db.Table(p.TableName).Where(condition).Count(&count).Error
+	errCount := db.Table(p.TableName).Where(query, queryArgs...).Count(&count).Error
 
 	if errCount != nil {
 		err = p.processError(span, errCount, pconst.ERROR_MYSQL_COUNT, "count data error")
