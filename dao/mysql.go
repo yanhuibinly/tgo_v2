@@ -426,3 +426,8 @@ func (p *Mysql) processError(span opentracing.Span, err error, code int, formatt
 
 	return terr
 }
+
+func (p *Mysql) GenQueryInfo(query string, args ...interface{}) (string, []interface{}) {
+
+	return query, args
+}
