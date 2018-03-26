@@ -32,7 +32,6 @@ func init() {
 
 type Grpc struct {
 	Service     string
-	Insecure    bool
 	DialOptions []grpc.DialOption
 }
 
