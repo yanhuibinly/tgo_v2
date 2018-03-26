@@ -88,7 +88,7 @@ func (p *Grpc) GetConn(ctx context.Context) (conn *grpc.ClientConn, err error) {
 			//b := balancer.Get("round_robin")
 
 			dialOptions := append(p.DialOptions, grpc.WithBalancerName(roundrobin.Name))
-			if p.Insecure {
+			if conf.Insecure {
 				dialOptions = append(dialOptions, grpc.WithInsecure())
 			}
 			if config.FeatureZipkin() {
