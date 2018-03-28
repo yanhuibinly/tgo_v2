@@ -10,6 +10,7 @@ import (
 	"github.com/tonyjt/tgo_v2/log"
 	"github.com/tonyjt/tgo_v2/pconst"
 	"github.com/tonyjt/tgo_v2/terror"
+	"reflect"
 )
 
 //Es es struct
@@ -79,21 +80,86 @@ func (p *Es) Invoke(ctx context.Context, client *elastic.Client, funcName string
 	return
 }
 
-func (p *Es) Insert(ctx context.Context, indexName string, id string, data interface{}) (err error) {
+func (p *Es) Insert(ctx context.Context, id string, data interface{}) (err error) {
 
 	span, ctx := p.ZipkinNewSpan(ctx, "insert")
-
 	if span != nil {
 		defer span.Finish()
 	}
 
 	client, err := p.GetConn(ctx)
-
 	if err != nil {
 		return
 	}
 
-	client.Index().Index(indexName)
+	_, err = client.Index().Index(p.Index).Type(p.Type).Id(id).BodyJson(data).Do(ctx)
+	if err != nil {
+		log.Errorf("es insert error :%s", err.Error())
+	}
+
+	return
+}
+
+func (p *Es) Update(ctx context.Context, id string, doc interface{}) (err error) {
+
+	span, ctx := p.ZipkinNewSpan(ctx, "update")
+	if span != nil {
+		defer span.Finish()
+	}
+
+	client, err := p.GetConn(ctx)
+	if err != nil {
+		return
+	}
+
+	_, err = client.Update().Index(p.Index).Type(p.Type).Id(id).Doc(doc).Do(ctx)
+	if err != nil {
+		log.Errorf("es update error :%s", err.Error())
+	}
+
+	return
+}
+
+func (p *Es) Delete(ctx context.Context, id string) (err error) {
+
+	span, ctx := p.ZipkinNewSpan(ctx, "delete")
+	if span != nil {
+		defer span.Finish()
+	}
+
+	client, err := p.GetConn(ctx)
+	if err != nil {
+		return
+	}
+
+	_, err = client.Delete().Index(p.Index).Type(p.Type).Id(id).Do(ctx)
+	if err != nil {
+		log.Errorf("es delete error :%s", err.Error())
+	}
+
+	return
+}
+
+func (p *Es) Search(ctx context.Context, query elastic.Query, typ interface{}, from int, size int,
+	sorters ...elastic.Sorter) (data []interface{}, err error) {
+
+	span, ctx := p.ZipkinNewSpan(ctx, "delete")
+	if span != nil {
+		defer span.Finish()
+	}
+
+	client, err := p.GetConn(ctx)
+	if err != nil {
+		return
+	}
+
+	res, err := client.Search().Index(p.Index).Type(p.Type).Query(query).
+		From(from).Size(size).SortBy(sorters...).Do(ctx)
+	if err != nil {
+		log.Errorf("es search error :%s", err.Error())
+	}
+
+	data = res.Each(reflect.TypeOf(typ))
 
 	return
 }
