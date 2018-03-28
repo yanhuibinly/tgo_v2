@@ -94,7 +94,8 @@ func (p *Es) Insert(ctx context.Context, id string, data interface{}) (err error
 
 	_, err = client.Index().Index(p.Index).Type(p.Type).Id(id).BodyJson(data).Do(ctx)
 	if err != nil {
-		log.Errorf("es insert error :%s", err.Error())
+		msg := fmt.Sprintf("es insert error :%s", err.Error())
+		p.proccessError(span, err, msg)
 	}
 
 	return
@@ -114,7 +115,8 @@ func (p *Es) Update(ctx context.Context, id string, doc interface{}) (err error)
 
 	_, err = client.Update().Index(p.Index).Type(p.Type).Id(id).Doc(doc).Do(ctx)
 	if err != nil {
-		log.Errorf("es update error :%s", err.Error())
+		msg := fmt.Sprintf("es update error :%s", err.Error())
+		p.proccessError(span, err, msg)
 	}
 
 	return
@@ -134,7 +136,8 @@ func (p *Es) Delete(ctx context.Context, id string) (err error) {
 
 	_, err = client.Delete().Index(p.Index).Type(p.Type).Id(id).Do(ctx)
 	if err != nil {
-		log.Errorf("es delete error :%s", err.Error())
+		msg := fmt.Sprintf("es delete error :%s", err.Error())
+		p.proccessError(span, err, msg)
 	}
 
 	return
@@ -156,7 +159,8 @@ func (p *Es) Search(ctx context.Context, query elastic.Query, typ interface{}, f
 	res, err := client.Search().Index(p.Index).Type(p.Type).Query(query).
 		From(from).Size(size).SortBy(sorters...).Do(ctx)
 	if err != nil {
-		log.Errorf("es search error :%s", err.Error())
+		msg := fmt.Sprintf("es search error :%s", err.Error())
+		p.proccessError(span, err, msg)
 	}
 
 	data = res.Each(reflect.TypeOf(typ))
